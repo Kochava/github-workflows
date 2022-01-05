@@ -16,22 +16,22 @@ on:
         description: 'Token password for GitHub auth'
         required: true
 
-      # Registery arguments.
-      # Must supply set of arguments for at least 1 registery.
+      # Registry arguments.
+      # Must supply set of arguments for at least 1 registry.
 
-      # Artifact Registery arguments
+      # Artifact Registry arguments
       ARTIFACT_REGISTRY:
         description: 'Artifact Registry address to which to publish (leave blank to not publish)'
         required: false
       ARTIFACT_REGISTRY_JSON_KEY:
-        description: 'Key for publishing to Artifact Registery'
+        description: 'Key for publishing to Artifact Registry'
         required: false
-      # Container Registery arguements
+      # Container Registry arguements
       CONTAINER_REGISTRY:
         description: 'Container Registry address to which to publish (leave blank to not publish)'
         required: false
       CONTAINER_REGISTRY_JSON_KEY:
-        description: 'Key for publishing to Container Registery'
+        description: 'Key for publishing to Container Registry'
         required: false
 
 env:
@@ -65,16 +65,16 @@ jobs:
         id: parse_repo_name
         run: |
           echo ::set-output name=repo_name::"$( echo '${{ github.repository }}' | awk -F '/' '{print $2}' )"
-      # Make the docker fields for Artifact Registery if we're pushing to it.
-      - name: Construct Artifact Registery fields
+      # Make the docker fields for Artifact Registry if we're pushing to it.
+      - name: Construct Artifact Registry fields
         env:
           ARTIFACT_REGISTRY: ${{ secrets.ARTIFACT_REGISTRY }}
         if: ${{ env.ARTIFACT_REGISTRY }}
         run: |
           echo "ARTIFACT_REGISTRY_IMAGE_NAME=${{ secrets.ARTIFACT_REGISTRY }}/${{ github.repository }}" >> $GITHUB_ENV
           echo "ARTIFACT_REGISTRY_DOMAIN=$(echo "${{ secrets.ARTIFACT_REGISTRY }}" | sed -e 's|^[^/]*//||' -e 's|/.*$||')" >> $GITHUB_ENV
-      # Make the docker fields for Container Registery if we're pushing to it.
-      - name: Construct Container Registery fields
+      # Make the docker fields for Container Registry if we're pushing to it.
+      - name: Construct Container Registry fields
         env:
           CONTAINER_REGISTRY: ${{ secrets.CONTAINER_REGISTRY }}
         if: ${{ env.CONTAINER_REGISTRY }}
@@ -94,7 +94,7 @@ jobs:
           tags: |
             type=ref,event=tag
             type=semver,pattern={{version}}
-      # Login to Artifact Registery if we're pushing to it.
+      # Login to Artifact Registry if we're pushing to it.
       - name: Login to Artifact Registry
         env:
           ARTIFACT_REGISTRY_JSON_KEY: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
@@ -104,7 +104,7 @@ jobs:
           registry: ${{ env.ARTIFACT_REGISTRY_DOMAIN }}
           username: _json_key
           password: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
-      # Login to Container Registery if we're pushing to it.
+      # Login to Container Registry if we're pushing to it.
       - name: Login to Container Registry
         env:
           CONTAINER_REGISTRY_JSON_KEY: ${{ secrets.CONTAINER_REGISTRY_JSON_KEY }}
