@@ -7,7 +7,7 @@ on:
         description: 'Token password for GitHub auth'
         required: true
 
-jobs:  
+jobs:
   release:
     #
     # Create a GitHub Release based on conventional commits.
