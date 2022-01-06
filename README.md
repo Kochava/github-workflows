@@ -7,6 +7,7 @@ This repo contains GitHub Action Workflow Templates for Kochava's various workfl
 | Workflow Type | File Prefix | Tag Format       | Description                                                                                                                                                                                             |
 |---------------|-------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Go App        | go_app      | go/app/{version} | Used for Go application projects intended to be deployed as a Docker image. Tests/Lints on PRs, Creates a Release based on conventional commits when merged to main, Publishes Docker image on Release. |
+| Go Library    | go_lib      | go/lib/{version} | Used for Go library projects intended to be imported. Tests/Lints on PRs, Creates a Release based on conventional commits when merged to main.                                                          |
 
 ## Versioning
 
