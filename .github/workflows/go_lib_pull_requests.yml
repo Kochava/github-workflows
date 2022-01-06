@@ -1,0 +1,74 @@
+name: Pull Request
+
+on:
+  workflow_call:
+    inputs:
+      GH_CI_USER:
+        description: 'User for GitHub auth'
+        required: true
+        type: string
+      GOPRIVATE:
+        description: 'GOPRIVATE env for go commands'
+        required: false
+        type: string
+    secrets:
+      GH_CI_PAT:
+        description: 'Token password for GitHub auth'
+        required: true
+
+env:
+  GOPRIVATE: ${{ inputs.GOPRIVATE }}
+
+jobs:
+  commitlint:
+    #
+    # ensures commit messages follow conventional commits
+    #
+    runs-on: ubuntu-latest
+    steps:
+      # checkout the commits to lint.
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      # setup node, needed to lint commits.
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      # Install needed libraries to lint commits.
+      - run: npm install --save-dev @commitlint/{config-conventional,cli}
+      # Lint the commits.
+      - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
+
+  test:
+    #
+    # ensure go standards and tests pass
+    #
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # List of go versions to test on.
+        go: ['^1.16', '^1.17', '^1']
+    steps:
+      # Checkout go code to test.
+      - name: Checkout repo
+        uses: actions/checkout@v2
+      # Setup Go for each version in the matrix.
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      # Use auth to get access to private Git repos for Go code dependencies.
+      - name: Configure git for private modules
+        env:
+          TOKEN: ${{ secrets.GH_CI_PAT }}
+          GITHUB_USERNAME: ${{ inputs.GH_CI_USER }}
+        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf "https://github.com"
+      # Vendor Go code for ever Go module.
+      - name: go mod vendor
+        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go mod vendor"
+      # Go vet every Go module.
+      - name: go vet
+        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
+      # Run unit test for evet Go module.
+      - name: go test
+        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go test -mod=vendor --race -v ./..."
