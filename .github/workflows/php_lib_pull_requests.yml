@@ -8,6 +8,12 @@ on:
         required: false
         default: true
         type: boolean
+      # Some libraries don't have unit tests and thus don't vendor phpunit
+      PHP_UNIT:
+        description: 'Toggle for the PHP unit test step'
+        required: false
+        default: true
+        type: boolean
     secrets:
       COMPOSER_AUTH:
         description: 'Auth JSON for Composer'
@@ -62,4 +68,5 @@ jobs:
         run: ./vendor/bin/phpcs -s --extensions=php
       # Run PHP unit tests.
       - name: phpunit
+        if: ${{ inputs.PHP_UNIT }}
         run: ./vendor/bin/phpunit
