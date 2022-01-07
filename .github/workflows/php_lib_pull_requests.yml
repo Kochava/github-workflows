@@ -1,0 +1,65 @@
+name: Pull Request
+
+on:
+  workflow_call:
+    inputs:
+      PHP_LINT:
+        description: 'Toggle for the PHP lint step'
+        required: false
+        default: true
+        type: boolean
+    secrets:
+      COMPOSER_AUTH:
+        description: 'Auth JSON for Composer'
+        required: true
+
+jobs:
+  commitlint:
+    #
+    # ensures commit messages follow conventional commits
+    #
+    runs-on: ubuntu-latest
+    steps:
+      # checkout the commits to lint.
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      # setup node, needed to lint commits.
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      # Install needed libraries to lint commits.
+      - run: npm install --save-dev @commitlint/{config-conventional,cli}
+      # Lint the commits.
+      - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
+
+  test:
+    #
+    # ensure php standards and tests pass
+    #
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # List of php versions to test on.
+        php-version: ['7.0']
+    steps:
+      # Checkout php code to test.
+      - name: Checkout repo
+        uses: actions/checkout@v2
+        # Setup PHP for each version in the matrix.
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2 # https://github.com/marketplace/actions/setup-php-action
+        with:
+          php-version: ${{ matrix.php-version }}
+      # Vendor PHP code.
+      - name: Composer
+        env:
+          COMPOSER_AUTH: '${{ secrets.COMPOSER_AUTH }}'
+        uses: "ramsey/composer-install@v1"
+      # Run PHP linter.
+      - name: php lint
+        if: ${{ inputs.PHP_LINT }}
+        run: ./vendor/bin/phpcs -s --extensions=php
+      # Run PHP unit tests.
+      - name: phpunit
+        run: ./vendor/bin/phpunit
