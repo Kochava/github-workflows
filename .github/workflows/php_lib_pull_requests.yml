@@ -14,6 +14,11 @@ on:
         required: false
         default: true
         type: boolean
+      COMPOSER_WORKING_DIRECTORY:
+        description: 'Working directory for installing composer and running linting and unit tests'
+        required: false
+        default: "."
+        type: string
     secrets:
       COMPOSER_AUTH:
         description: 'Auth JSON for Composer'
@@ -61,12 +66,14 @@ jobs:
       - name: Composer
         env:
           COMPOSER_AUTH: '${{ secrets.COMPOSER_AUTH }}'
-        uses: "ramsey/composer-install@v1"
+        uses: "ramsey/composer-install@v2"
+        with:
+          working-directory: "${{ inputs.COMPOSER_WORKING_DIRECTORY }}"
       # Run PHP linter.
       - name: php lint
         if: ${{ inputs.PHP_LINT }}
-        run: ./vendor/bin/phpcs -s --extensions=php
+        run: ${{ inputs.COMPOSER_WORKING_DIRECTORY }}/vendor/bin/phpcs -s --extensions=php
       # Run PHP unit tests.
       - name: phpunit
         if: ${{ inputs.PHP_UNIT }}
-        run: ./vendor/bin/phpunit
+        run: ${{ inputs.COMPOSER_WORKING_DIRECTORY }}/vendor/bin/phpunit
