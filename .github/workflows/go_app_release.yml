@@ -72,7 +72,6 @@ jobs:
         if: ${{ env.ARTIFACT_REGISTRY }}
         run: |
           echo "ARTIFACT_REGISTRY_IMAGE_NAME=${{ secrets.ARTIFACT_REGISTRY }}/${{ github.repository }}" >> $GITHUB_ENV
-          echo "ARTIFACT_REGISTRY_DOMAIN=$(echo "${{ secrets.ARTIFACT_REGISTRY }}" | sed -e 's|^[^/]*//||' -e 's|/.*$||')" >> $GITHUB_ENV
       # Make the docker fields for Container Registry if we're pushing to it.
       - name: Construct Container Registry fields
         env:
@@ -80,7 +79,6 @@ jobs:
         if: ${{ env.CONTAINER_REGISTRY }}
         run: |
           echo "CONTAINER_REGISTRY_IMAGE_NAME=${{ secrets.CONTAINER_REGISTRY }}/${{ steps.parse_repo_name.outputs.repo_name }}" >> $GITHUB_ENV
-          echo "CONTAINER_REGISTRY_DOMAIN=$(echo "${{ secrets.CONTAINER_REGISTRY }}" | sed -e 's|^[^/]*//||' -e 's|/.*$||')" >> $GITHUB_ENV
       # Create docker image meta data. Docker tags include the Git tag itself and the sematic version parsing of that tag if possible.
       - name: Docker release meta
         id: release
@@ -101,7 +99,7 @@ jobs:
         if: ${{ env.ARTIFACT_REGISTRY_JSON_KEY }}
         uses: docker/login-action@v1
         with:
-          registry: ${{ env.ARTIFACT_REGISTRY_DOMAIN }}
+          registry: ${{ env.ARTIFACT_REGISTRY }}
           username: _json_key
           password: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
       # Login to Container Registry if we're pushing to it.
@@ -111,7 +109,7 @@ jobs:
         if: ${{ env.CONTAINER_REGISTRY_JSON_KEY }}
         uses: docker/login-action@v1
         with:
-          registry: ${{ env.CONTAINER_REGISTRY_DOMAIN }}
+          registry: ${{ env.CONTAINER_REGISTRY }}
           username: _json_key
           password: ${{ secrets.CONTAINER_REGISTRY_JSON_KEY }}
       # Setup QEMU needed to build arm64 images.
