@@ -99,7 +99,7 @@ jobs:
         if: ${{ env.ARTIFACT_REGISTRY_JSON_KEY }}
         uses: docker/login-action@v1
         with:
-          registry: ${{ env.ARTIFACT_REGISTRY }}
+          registry: ${{ secrets.ARTIFACT_REGISTRY }}
           username: _json_key
           password: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
       # Login to Container Registry if we're pushing to it.
@@ -109,7 +109,7 @@ jobs:
         if: ${{ env.CONTAINER_REGISTRY_JSON_KEY }}
         uses: docker/login-action@v1
         with:
-          registry: ${{ env.CONTAINER_REGISTRY }}
+          registry: ${{ secrets.CONTAINER_REGISTRY }}
           username: _json_key
           password: ${{ secrets.CONTAINER_REGISTRY_JSON_KEY }}
       # Setup QEMU needed to build arm64 images.
