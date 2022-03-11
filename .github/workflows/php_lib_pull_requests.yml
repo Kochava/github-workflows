@@ -69,6 +69,7 @@ jobs:
         uses: "ramsey/composer-install@v2"
         with:
           working-directory: "${{ inputs.COMPOSER_WORKING_DIRECTORY }}"
+          composer-options: "--ignore-platform-reqs"
       # Run PHP linter.
       - name: php lint
         if: ${{ inputs.PHP_LINT }}
