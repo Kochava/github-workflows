@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # checkout the commits to lint.
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       # setup node, needed to lint commits.
@@ -56,7 +56,7 @@ jobs:
     steps:
       # Checkout php code to test.
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         # Setup PHP for each version in the matrix.
       - name: Setup PHP
         uses: shivammathur/setup-php@v2 # https://github.com/marketplace/actions/setup-php-action
