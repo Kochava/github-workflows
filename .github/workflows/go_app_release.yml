@@ -64,7 +64,7 @@ jobs:
       - name: Parse Repo Name
         id: parse_repo_name
         run: |
-          echo ::set-output name=repo_name::"$( echo '${{ github.repository }}' | awk -F '/' '{print $2}' )"
+          echo "repo_name=$( echo '${{ github.repository }}' | awk -F '/' '{print $2}' )" >> $GITHUB_OUTPUT
       # Make the docker fields for Artifact Registry if we're pushing to it.
       - name: Construct Artifact Registry fields
         env:
