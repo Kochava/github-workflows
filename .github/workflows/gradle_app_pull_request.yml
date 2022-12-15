@@ -23,7 +23,7 @@ jobs:
       - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
   lint:
     #
-    # runs kotlin lint
+    # runs java/kotlin lint
     # https://github.com/github/super-linter
     #
     runs-on: ubuntu-latest
