@@ -38,7 +38,7 @@ jobs:
       # setup node, needed to lint commits.
       - uses: actions/setup-node@v1
         with:
-          node-version: 14
+          node-version: 18
       # Install needed libraries to lint commits.
       - run: npm install --save-dev @commitlint/{config-conventional,cli}
       # Lint the commits.

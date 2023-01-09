@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: 14
+          node-version: 18
       # Add plugin to make the changelog for the release.
       - name: Add plugin for conventional commits
         run: npm install conventional-changelog-conventionalcommits
