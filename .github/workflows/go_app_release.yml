@@ -45,10 +45,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checkout code needed to build docker image.
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       # Setup Go in order to vendor dependencies in a later setp.
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: '^1'
       # Use auth to get access to private Git repos for Go code dependencies.
@@ -64,7 +64,7 @@ jobs:
       - name: Parse Repo Name
         id: parse_repo_name
         run: |
-          echo ::set-output name=repo_name::"$( echo '${{ github.repository }}' | awk -F '/' '{print $2}' )"
+          echo "repo_name=$( echo '${{ github.repository }}' | awk -F '/' '{print $2}' )" >> $GITHUB_OUTPUT
       # Make the docker fields for Artifact Registry if we're pushing to it.
       - name: Construct Artifact Registry fields
         env:
@@ -82,7 +82,7 @@ jobs:
       # Create docker image meta data. Docker tags include the Git tag itself and the sematic version parsing of that tag if possible.
       - name: Docker release meta
         id: release
-        uses: docker/metadata-action@v3
+        uses: docker/metadata-action@v4
         with:
           images: |
             ${{ env.ARTIFACT_REGISTRY_IMAGE_NAME }}
@@ -97,7 +97,7 @@ jobs:
         env:
           ARTIFACT_REGISTRY_JSON_KEY: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
         if: ${{ env.ARTIFACT_REGISTRY_JSON_KEY }}
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: ${{ secrets.ARTIFACT_REGISTRY }}
           username: _json_key
@@ -107,21 +107,21 @@ jobs:
         env:
           CONTAINER_REGISTRY_JSON_KEY: ${{ secrets.CONTAINER_REGISTRY_JSON_KEY }}
         if: ${{ env.CONTAINER_REGISTRY_JSON_KEY }}
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: ${{ secrets.CONTAINER_REGISTRY }}
           username: _json_key
           password: ${{ secrets.CONTAINER_REGISTRY_JSON_KEY }}
       # Setup QEMU needed to build arm64 images.
       - name: Setup QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
       # Setup Docker builder needed to build multi-architectural images.
       - name: Setup Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
       # Build and push the image.
       - name: Build and Push to Artifact Registry and Container Registry
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           push: true
           context: .
