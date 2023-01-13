@@ -1,0 +1,113 @@
+name: Release Docker Version
+
+on:
+  workflow_call:
+    inputs:
+      GH_CI_USER:
+        description: 'User for GitHub auth'
+        required: true
+        type: string
+    secrets:
+      GH_CI_PAT:
+        description: 'Token password for GitHub auth'
+        required: true
+
+      # Registry arguments.
+      # Must supply set of arguments for at least 1 registry.
+
+      # Artifact Registry arguments
+      ARTIFACT_REGISTRY:
+        description: 'Artifact Registry address to which to publish (leave blank to not publish)'
+        required: false
+      ARTIFACT_REGISTRY_JSON_KEY:
+        description: 'Key for publishing to Artifact Registry'
+        required: false
+      # Container Registry arguements
+      CONTAINER_REGISTRY:
+        description: 'Container Registry address to which to publish (leave blank to not publish)'
+        required: false
+      CONTAINER_REGISTRY_JSON_KEY:
+        description: 'Key for publishing to Container Registry'
+        required: false
+
+jobs:
+  push:
+    #
+    # Build the Docker image artifact and deliver it.
+    #
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout code needed to build docker image.
+      - uses: actions/checkout@v3
+
+      # Parse GitHub repository name for use in constructing docker image names.
+      - name: Parse Repo Name
+        id: parse_repo_name
+        run: |
+          echo "repo_name=$( echo '${{ github.repository }}' | awk -F '/' '{print $2}' )" >> $GITHUB_OUTPUT
+      # Make the docker fields for Artifact Registry if we're pushing to it.
+      - name: Construct Artifact Registry fields
+        env:
+          ARTIFACT_REGISTRY: ${{ secrets.ARTIFACT_REGISTRY }}
+        if: ${{ env.ARTIFACT_REGISTRY }}
+        run: |
+          echo "ARTIFACT_REGISTRY_IMAGE_NAME=${{ secrets.ARTIFACT_REGISTRY }}/${{ github.repository }}" >> $GITHUB_ENV
+      # Make the docker fields for Container Registry if we're pushing to it.
+      - name: Construct Container Registry fields
+        env:
+          CONTAINER_REGISTRY: ${{ secrets.CONTAINER_REGISTRY }}
+        if: ${{ env.CONTAINER_REGISTRY }}
+        run: |
+          echo "CONTAINER_REGISTRY_IMAGE_NAME=${{ secrets.CONTAINER_REGISTRY }}/${{ steps.parse_repo_name.outputs.repo_name }}" >> $GITHUB_ENV
+      # Create docker image meta data. Docker tags include the Git tag itself and the sematic version parsing of that tag if possible.
+      - name: Docker release meta
+        id: release
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.ARTIFACT_REGISTRY_IMAGE_NAME }}
+            ${{ env.CONTAINER_REGISTRY_IMAGE_NAME }}
+          flavor: |
+            latest=false
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+      # Login to Artifact Registry if we're pushing to it.
+      - name: Login to Artifact Registry
+        env:
+          ARTIFACT_REGISTRY_JSON_KEY: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
+        if: ${{ env.ARTIFACT_REGISTRY_JSON_KEY }}
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.ARTIFACT_REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
+      # Login to Container Registry if we're pushing to it.
+      - name: Login to Container Registry
+        env:
+          CONTAINER_REGISTRY_JSON_KEY: ${{ secrets.CONTAINER_REGISTRY_JSON_KEY }}
+        if: ${{ env.CONTAINER_REGISTRY_JSON_KEY }}
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.CONTAINER_REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.CONTAINER_REGISTRY_JSON_KEY }}
+      # Setup QEMU needed to build arm64 images.
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v2
+      # Setup Docker builder needed to build multi-architectural images.
+      - name: Setup Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+      # Build and push the image.
+      - name: Build and Push to Artifact Registry and Container Registry
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ steps.release.outputs.version }}
+          tags: ${{ steps.release.outputs.tags }}
+          labels: ${{ steps.release.outputs.labels }}
