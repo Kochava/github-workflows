@@ -10,6 +10,7 @@ This repo contains GitHub Action Workflow Templates for Kochava's various workfl
 | Go Library    | go_lib      | go/lib/{version}  | Used for Go library projects intended to be imported. Tests/Lints on PRs, Creates a Release based on conventional commits when merged to main.                                                          |
 | PHP Library   | php_lib     | php/lib/{version} | Used for PHP library projects intended to be imported. Tests/Lints on PRs, Creates a Release based on conventional commits when merged to main.                                                         |
 | Gradle Library   | gradle_app     | gradle/app/{version} | Used for Gradle Java/Kotlin application projects intended to be deployed as a Jar file. Tests/Lints on PRs, Creates a Release based on conventional commits when merged to main.                                                         |
+| Ruby on Rails App   | rails_app     | rails/app/{version} | Used for Ruby on Rails application projects intended to be deployed as a Docker image. Tests on PRs, Creates a Release based on conventional commits when merged to main.                                                         |
 
 ## Versioning
 

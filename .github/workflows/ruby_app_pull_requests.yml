@@ -1,0 +1,73 @@
+name: Pull Request
+
+on:
+  workflow_call:
+    inputs:
+      GH_CI_USER:
+        description: 'User for GitHub auth'
+        required: true
+        type: string
+    secrets:
+      GH_CI_PAT:
+        description: 'Token password for GitHub auth'
+        required: true
+
+jobs:
+  commitlint:
+    #
+    # ensures commit messages follow conventional commits
+    #
+    runs-on: ubuntu-latest
+    steps:
+      # checkout the commits to lint.
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      # setup node, needed to lint commits.
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 18
+      # Install needed libraries to lint commits.
+      - run: npm install --save-dev @commitlint/{config-conventional,cli}
+      # Lint the commits.
+      - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
+
+  test:
+    #
+    # Disable due to performance.
+    # Ruby on Rails tests needs to have a redis/postgres/elasticsearch instance to test the framework.
+    #
+ 
+  docker-build:
+    #
+    # ensures the docker image will build without pushing to the registry
+    # uses the git sha for the most recent commit for the version
+    #
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout code to build.
+      - name: Checkout repo
+        uses: actions/checkout@v3
+      # Setup docker build arguments.
+      - name: Docker release meta
+        id: release
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ github.repository }}
+          tags: |
+            type=sha
+      # Setup Docker builder to do build.
+      # We need this?
+      - name: Setup Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+      # Build the app.
+      - name: Build
+        uses: docker/build-push-action@v3
+        with:
+          push: false
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.release.outputs.tags }}
