@@ -32,11 +32,11 @@ jobs:
       # Lint the commits.
       - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
 
-  test:
-    #
-    # Disable due to performance.
-    # Ruby on Rails tests needs to have a redis/postgres/elasticsearch instance to test the framework.
-    #
+  # test:
+  #
+  # Disable due to performance.
+  # Ruby on Rails tests needs to have a redis/postgres/elasticsearch instance to test the framework.
+  #
  
   docker-build:
     #
