@@ -3,13 +3,34 @@ name: Pull Request
 on:
   workflow_call:
     inputs:
-      GH_CI_USER:
-        description: 'User for GitHub auth'
+      DATABASE_ADAPTER:
+        description: 'Database adapter for Postgres test step service'
         required: true
         type: string
+        default: postgresql
+      DATABASE_NAME:
+        description: 'Database name for Postgres test step service'
+        required: true
+        type: string
+        default: thalamus_test
+      DATABASE_USERNAME:
+        description: 'User for Postgres test step service'
+        required: true
+        type: string
+        default: postgres
+      DATABASE_HOST:
+        description: 'Database host for Postgres test step service'
+        required: true
+        type: string
+        default: localhost
+      SQL_PATH:
+        description: 'SQL path to import Postgres test step service'
+        required: true
+        type: string
+        default: db/structure.sql
     secrets:
-      GH_CI_PAT:
-        description: 'Token password for GitHub auth'
+      DATABASE_PASSWORD:
+        description: 'Database password for Postgres test step service'
         required: true
 
 jobs:
@@ -32,12 +53,71 @@ jobs:
       # Lint the commits.
       - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
 
-  # test:
-  #
-  # Disable due to performance.
-  # Ruby on Rails tests needs to have a redis/postgres/elasticsearch instance to test the framework.
-  #
- 
+  # codelint:
+  #   #
+  #   # ensure ruby/rails code standards
+  #   #
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: ruby/setup-ruby@477b21f02be01bcb8030d50f37cfec92bfa615b6
+  #       with:
+  #         bundler-cache: true
+  #     - run: bundle install
+  #     - name: Rubocop
+  #       run: bundle exec rubocop
+
+  test:
+      #
+      # ensure ruby standards and tests pass
+      #
+      runs-on: ubuntu-latest
+
+      services:
+        database:
+          image: postgres:12.3
+          env:
+            POSTGRES_PASSWORD: th4l4mus
+          ports:
+            - 5432:5432
+
+        redis:
+          image: redis:5.0.7
+          options: >-
+            --health-cmd "redis-cli ping"
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
+          ports:
+            - 6379:6379
+
+        elasticsearch:
+          image: docker.elastic.co/elasticsearch/elasticsearch:6.8.6
+          ports:
+            - 9200:9200
+
+      steps:
+        # Checkout ruby code to test.
+        - name: Checkout repo
+          uses: actions/checkout@v3
+        # Setup Ruby, by default uses .ruby-version file.
+        - name: Setup up Ruby
+          uses: ruby/setup-ruby@477b21f02be01bcb8030d50f37cfec92bfa615b6
+          with:
+            bundler-cache: true
+        - name: Install dependencies
+          run: bundle install
+        - name: Setup database
+          run: psql -h ${{ inputs.DATABASE_HOST }} -U ${{ inputs.DATABASE_USERNAME }} -c 'CREATE DATABASE "thalamus_test";'
+          env:
+            PGPASSWORD: '${{ secrets.DATABASE_PASSWORD }}'
+        - name: Prepare test database
+          run: psql -h ${{ inputs.DATABASE_HOST }} -U ${{ inputs.DATABASE_USERNAME }} -d ${{ inputs.DATABASE_NAME }} < ${{ inputs.SQL_PATH }}
+          env:
+            PGPASSWORD: '${{ secrets.DATABASE_PASSWORD }}'
+        - name: Run tests
+          run: bundle exec rspec spec
+
   docker-build:
     #
     # ensures the docker image will build without pushing to the registry
@@ -58,7 +138,6 @@ jobs:
           tags: |
             type=sha
       # Setup Docker builder to do build.
-      # We need this?
       - name: Setup Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
