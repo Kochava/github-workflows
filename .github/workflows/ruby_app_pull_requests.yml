@@ -12,7 +12,7 @@ on:
         description: 'Database name for Postgres test step service'
         required: true
         type: string
-        default: thalamus_test
+        default: database_test
       DATABASE_USERNAME:
         description: 'User for Postgres test step service'
         required: true
@@ -53,19 +53,21 @@ jobs:
       # Lint the commits.
       - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
 
-  codelint:
+  lint:
     #
-    # ensure ruby/rails code standards
+    # runs ruby linter
+    # https://github.com/github/super-linter
     #
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: ruby/setup-ruby@477b21f02be01bcb8030d50f37cfec92bfa615b6
+      - name: Checkout code
+        uses: actions/checkout@v3
         with:
-          bundler-cache: true
-      - run: bundle install
-      - name: Rubocop
-        run: bundle exec rubocop
+          fetch-depth: 0
+      - name: Lint Code Base
+        uses: github/super-linter/slim@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test:
       #
@@ -107,8 +109,9 @@ jobs:
             bundler-cache: true
         - name: Install dependencies
           run: bundle install
+        # TODO: escape database_test from run coommand.
         - name: Setup database
-          run: psql -h ${{ inputs.DATABASE_HOST }} -U ${{ inputs.DATABASE_USERNAME }} -c 'CREATE DATABASE "thalamus_test";'
+          run: psql -h ${{ inputs.DATABASE_HOST }} -U ${{ inputs.DATABASE_USERNAME }} -c 'CREATE DATABASE "database_test";'
           env:
             PGPASSWORD: '${{ secrets.DATABASE_PASSWORD }}'
         - name: Prepare test database
