@@ -1,5 +1,4 @@
 name: Pull Request
-
 on:
   workflow_call:
     inputs:
@@ -15,10 +14,8 @@ on:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
         required: true
-
 env:
   GOPRIVATE: ${{ inputs.GOPRIVATE }}
-
 jobs:
   commitlint:
     #
@@ -38,7 +35,6 @@ jobs:
       - run: npm install --save-dev @commitlint/{config-conventional,cli}
       # Lint the commits.
       - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
-
   lint:
     #
     # runs golangci-lint
@@ -58,12 +54,13 @@ jobs:
         env:
           TOKEN: ${{ secrets.GH_CI_PAT }}
           GITHUB_USERNAME: kochava-ci
-        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf "https://github.com"
+        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
+          "https://github.com"
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
           version: latest
-
+          args: --timeout=2m
   test:
     #
     # ensure go standards and tests pass
@@ -87,17 +84,20 @@ jobs:
         env:
           TOKEN: ${{ secrets.GH_CI_PAT }}
           GITHUB_USERNAME: ${{ inputs.GH_CI_USER }}
-        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf "https://github.com"
+        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
+          "https://github.com"
       # Vendor Go code for ever Go module.
       - name: go mod vendor
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go mod vendor"
+        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
+          | xargs -n1 -I{} bash -c "pushd {}; go mod vendor"
       # Go vet every Go module.
       - name: go vet
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
+        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
+          | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
       # Run unit test for evet Go module.
       - name: go test
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go test -mod=vendor --race -v ./..."
-
+        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
+          | xargs -n1 -I{} bash -c "pushd {}; go test -mod=vendor --race -v ./..."
   docker-build:
     #
     # ensures the docker image will build without pushing to the registry
@@ -118,7 +118,8 @@ jobs:
         env:
           TOKEN: ${{ secrets.GH_CI_PAT }}
           GITHUB_USERNAME: ${{ inputs.GH_CI_USER }}
-        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf "https://github.com"
+        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
+          "https://github.com"
       # Vendor Go code needed to build app.
       - name: go mod vendor
         run: go mod vendor
