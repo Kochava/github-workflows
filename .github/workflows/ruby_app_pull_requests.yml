@@ -4,34 +4,42 @@ on:
   workflow_call:
     inputs:
       DATABASE_ADAPTER:
-        description: 'Database adapter for Postgres test step service'
+        description: 'Database adapter for Postgres/Rails services'
         required: true
         type: string
-        default: postgresql
+        default: 'postgresql'
       DATABASE_NAME:
-        description: 'Database name for Postgres test step service'
+        description: 'Database name for Postgres/Rails services'
         required: true
         type: string
-        default: database_test
+        default: 'database_test'
       DATABASE_USERNAME:
-        description: 'User for Postgres test step service'
+        description: 'User for for Postgres/Rails services'
         required: true
         type: string
-        default: postgres
+        default: 'postgres'
       DATABASE_HOST:
-        description: 'Database host for Postgres test step service'
+        description: 'Database host for for Postgres/Rails services'
         required: true
         type: string
-        default: localhost
+        default: 'localhost'
       SQL_PATH:
         description: 'SQL path to import Postgres test step service'
         required: true
         type: string
-        default: db/structure.sql
+        default: 'db/structure.sql'
     secrets:
       DATABASE_PASSWORD:
-        description: 'Database password for Postgres test step service'
+        description: 'Database password for Postgres/Rails services'
         required: true
+
+env:
+  DATABASE_ADAPTER: ${{ inputs.DATABASE_ADAPTER }}
+  DATABASE_NAME: ${{ inputs.DATABASE_NAME }}
+  DATABASE_USERNAME: ${{ inputs.DATABASE_USERNAME }}
+  DATABASE_PASSWORD:  ${{ secrets.DATABASE_PASSWORD }}
+  DATABASE_HOST: ${{ inputs.DATABASE_HOST }}
+  SQL_PATH: ${{ inputs.SQL_PATH }}
 
 jobs:
   commitlint:
@@ -53,22 +61,6 @@ jobs:
       # Lint the commits.
       - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
 
-  lint:
-    #
-    # runs ruby linter
-    # https://github.com/github/super-linter
-    #
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Lint Code Base
-        uses: github/super-linter/slim@v4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   test:
       #
       # ensure ruby standards and tests pass
@@ -79,7 +71,7 @@ jobs:
         database:
           image: postgres:12.3
           env:
-            POSTGRES_PASSWORD: '${{ secrets.DATABASE_PASSWORD }}'
+            POSTGRES_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
           ports:
             - 5432:5432
 
@@ -107,17 +99,19 @@ jobs:
           uses: ruby/setup-ruby@477b21f02be01bcb8030d50f37cfec92bfa615b6
           with:
             bundler-cache: true
+        # Install rails libraries.
         - name: Install dependencies
           run: bundle install
-        # TODO: escape database_test from run coommand.
-        - name: Setup database
-          run: psql -h ${{ inputs.DATABASE_HOST }} -U ${{ inputs.DATABASE_USERNAME }} -c 'CREATE DATABASE "database_test";'
+        # Create database.
+        - name: Create database
+          run: psql -h $DATABASE_HOST -U $DATABASE_USERNAME -c 'CREATE DATABASE "${{ env.DATABASE_NAME }}";'
           env:
-            PGPASSWORD: '${{ secrets.DATABASE_PASSWORD }}'
+            PGPASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+        # Setup database.
         - name: Prepare test database
-          run: psql -h ${{ inputs.DATABASE_HOST }} -U ${{ inputs.DATABASE_USERNAME }} -d ${{ inputs.DATABASE_NAME }} < ${{ inputs.SQL_PATH }}
+          run: psql -h $DATABASE_HOST -U $DATABASE_USERNAME -d $DATABASE_NAME < $SQL_PATH
           env:
-            PGPASSWORD: '${{ secrets.DATABASE_PASSWORD }}'
+            PGPASSWORD: ${{ secrets.DATABASE_PASSWORD }}
         - name: Run tests
           run: bundle exec rspec spec
 
