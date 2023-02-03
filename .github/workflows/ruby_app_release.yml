@@ -2,16 +2,7 @@ name: Release Docker Version
 
 on:
   workflow_call:
-    inputs:
-      GH_CI_USER:
-        description: 'User for GitHub auth'
-        required: true
-        type: string
     secrets:
-      GH_CI_PAT:
-        description: 'Token password for GitHub auth'
-        required: true
-
       # Registry arguments.
       # Must supply set of arguments for at least 1 registry.
 
@@ -22,7 +13,7 @@ on:
       ARTIFACT_REGISTRY_JSON_KEY:
         description: 'Key for publishing to Artifact Registry'
         required: false
-      # Container Registry arguements
+      # Container Registry arguments
       CONTAINER_REGISTRY:
         description: 'Container Registry address to which to publish (leave blank to not publish)'
         required: false
@@ -91,9 +82,6 @@ jobs:
           registry: ${{ secrets.CONTAINER_REGISTRY }}
           username: _json_key
           password: ${{ secrets.CONTAINER_REGISTRY_JSON_KEY }}
-      # Setup QEMU needed to build arm64 images.
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v2
       # Setup Docker builder needed to build multi-architectural images.
       - name: Setup Docker Buildx
         id: buildx
@@ -105,7 +93,7 @@ jobs:
           push: true
           context: .
           file: Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           build-args: |
             VERSION=${{ steps.release.outputs.version }}
           tags: ${{ steps.release.outputs.tags }}
