@@ -28,7 +28,7 @@ jobs:
         with:
           fetch-depth: 0
       # setup node, needed to lint commits.
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
           node-version: 18
       # Install needed libraries to lint commits.
@@ -54,8 +54,7 @@ jobs:
         env:
           TOKEN: ${{ secrets.GH_CI_PAT }}
           GITHUB_USERNAME: kochava-ci
-        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
-          "https://github.com"
+        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf "https://github.com"
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
@@ -84,17 +83,13 @@ jobs:
         env:
           TOKEN: ${{ secrets.GH_CI_PAT }}
           GITHUB_USERNAME: ${{ inputs.GH_CI_USER }}
-        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
-          "https://github.com"
+        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf "https://github.com"
       # Vendor Go code for ever Go module.
       - name: go mod vendor
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go mod vendor"
+        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go mod vendor"
       # Go vet every Go module.
       - name: go vet
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
+        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
       # Run unit test for evet Go module.
       - name: go test
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go test -mod=vendor --race -v ./..."
+        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go test -mod=vendor --race -v ./..."
