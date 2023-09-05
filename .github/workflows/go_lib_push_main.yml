@@ -25,7 +25,7 @@ jobs:
           node-version: 18
       # Add plugin to make the changelog for the release.
       - name: Add plugin for conventional commits
-        run: npm install conventional-changelog-conventionalcommits
+        run: npm install conventional-changelog-conventionalcommits@6
         working-directory: ./.github/workflows
       # Create the release.
       - name: Release to GitHub
