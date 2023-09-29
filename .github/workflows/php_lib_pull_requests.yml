@@ -1,5 +1,4 @@
 name: Pull Request
-
 on:
   workflow_call:
     inputs:
@@ -23,7 +22,6 @@ on:
       COMPOSER_AUTH:
         description: 'Auth JSON for Composer'
         required: true
-
 jobs:
   commitlint:
     #
@@ -36,14 +34,13 @@ jobs:
         with:
           fetch-depth: 0
       # setup node, needed to lint commits.
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
           node-version: 18
       # Install needed libraries to lint commits.
       - run: npm install --save-dev @commitlint/{config-conventional,cli}
       # Lint the commits.
       - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
-
   test:
     #
     # ensure php standards and tests pass
