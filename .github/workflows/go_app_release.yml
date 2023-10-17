@@ -136,7 +136,7 @@ jobs:
       # Move openapi file to the correct location and override version
       - name: Copy Open API file
         if: ${{ inputs.APISPEC_PATH && inputs.APISPEC_BUILD_PATH}}
-        run: cat ${inputs.APISPEC_PATH} && cp ${inputs.APISPEC_PATH} ${inputs.APISPEC_BUILD_PATH}
+        run: cat ${{ inputs.APISPEC_PATH }} && cp ${{ inputs.APISPEC_PATH }} ${{ inputs.APISPEC_BUILD_PATH}}
       # Build and push the image.
       - name: Build and Push to Artifact Registry and Container Registry
         uses: docker/build-push-action@v3
