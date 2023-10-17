@@ -11,6 +11,14 @@ on:
         description: 'GOPRIVATE env for go commands'
         required: false
         type: string
+      APISPEC_PATH:
+        description: 'The path to an Open API spec. Will have info.version updated with the release version'
+        required: false
+        type: string
+      APISPEC_BUILD_PATH:
+        description: 'A location to copy the APISPEC_PATH file to'
+        required: false
+        type: string
     secrets:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
