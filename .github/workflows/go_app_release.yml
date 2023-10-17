@@ -132,7 +132,7 @@ jobs:
         uses: mikefarah/yq@master
         if: ${{ inputs.APISPEC_PATH }}
         with:
-          cmd: yq -i '.info.version=${{ steps.release.outputs.version }}' ${{ inputs.APISPEC_PATH }}
+          cmd: yq -i '.info.version="${{ steps.release.outputs.version }}"' ${{ inputs.APISPEC_PATH }}
       # Move openapi file to the correct location and override version
       - name: Copy Open API file
         if: ${{ inputs.APISPEC_PATH && inputs.APISPEC_BUILD_PATH}}
