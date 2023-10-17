@@ -120,7 +120,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@v2
       # Update the openapi file to use the release version
-      - name: Prep Open API file
+      - name: Add release version to Open API file
         uses: mikefarah/yq@master
         if: ${{ env.APISPEC_PATH }}
         with:
