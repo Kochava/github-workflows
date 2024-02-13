@@ -40,7 +40,7 @@ jobs:
         with:
           node-version: 18
       # Install needed libraries to lint commits.
-      - run: npm install --save-dev @commitlint/{config-conventional,cli}
+      - run: npm install --save-dev @commitlint/{config-conventional@v18.6.0,cli}
       # Lint the commits.
       - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
 
