@@ -46,7 +46,7 @@ jobs:
     steps:
       # Checkout code needed to build docker image.
       - uses: actions/checkout@v3
-      # Setup Go in order to vendor dependencies in a later setp.
+      # Setup Go.
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
@@ -57,9 +57,6 @@ jobs:
           TOKEN: ${{ secrets.GH_CI_PAT }}
           GITHUB_USERNAME: ${{ inputs.GH_CI_USER }}
         run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf "https://github.com"
-      # Vendor Go code needed to build docker image.
-      - name: go mod vendor
-        run: go mod vendor
       # Parse GitHub repository name for use in constructing docker image names.
       - name: Parse Repo Name
         id: parse_repo_name

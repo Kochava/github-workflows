@@ -44,7 +44,7 @@ jobs:
       # Checkout code to build.
       - name: Checkout repo
         uses: actions/checkout@v3
-      # Setup Go in order to vendor dependencies in a later step.
+      # Setup Go.
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
@@ -86,10 +86,6 @@ jobs:
           GITHUB_USERNAME: ${{ inputs.GH_CI_USER }}
         run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
           "https://github.com"
-      # Vendor Go code for ever Go module.
-      - name: go mod vendor
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go mod vendor"
       # Go vet every Go module.
       - name: go vet
         run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
@@ -97,7 +93,7 @@ jobs:
       # Run unit test for evet Go module.
       - name: go test
         run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go test -mod=vendor --race -v ./..."
+          | xargs -n1 -I{} bash -c "pushd {}; go test --race -v ./..."
   docker-build:
     #
     # ensures the docker image will build without pushing to the registry
@@ -108,7 +104,7 @@ jobs:
       # Checkout code to build.
       - name: Checkout repo
         uses: actions/checkout@v3
-      # Setup Go in order to vendor dependencies in a later step.
+      # Setup Go.
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
@@ -120,9 +116,6 @@ jobs:
           GITHUB_USERNAME: ${{ inputs.GH_CI_USER }}
         run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
           "https://github.com"
-      # Vendor Go code needed to build app.
-      - name: go mod vendor
-        run: go mod vendor
       # Setup docker build arguments.
       - name: Docker release meta
         id: release

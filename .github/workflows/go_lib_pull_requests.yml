@@ -44,7 +44,7 @@ jobs:
       # Checkout code to build.
       - name: Checkout repo
         uses: actions/checkout@v3
-      # Setup Go in order to vendor dependencies in a later step.
+      # Setup Go.
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
