@@ -19,11 +19,11 @@ on:
         required: false
         default: "."
         type: string
-      USE_COMPOSER_OPTIONS:
-        description: 'whether to use the composer options or not'
+      COMPOSER_OPTIONS:
+        description: 'composer options to use'
         required: false
-        default: true
-        type: boolean
+        default: "--ignore-platform-reqs"
+        type: string
     secrets:
       COMPOSER_AUTH:
         description: 'Auth JSON for Composer'
@@ -68,21 +68,13 @@ jobs:
         with:
           php-version: ${{ matrix.php-version }}
       # Vendor PHP code.
-      - name: Composer With Options
-        if: ${{ inputs.USE_COMPOSER_OPTIONS }}
+      - name: Composer
         env:
           COMPOSER_AUTH: '${{ secrets.COMPOSER_AUTH }}'
         uses: "ramsey/composer-install@v2"
         with:
           working-directory: "${{ inputs.COMPOSER_WORKING_DIRECTORY }}"
-          composer-options: "--ignore-platform-reqs"
-      - name: Composer Without Options
-        if: ${{ !inputs.USE_COMPOSER_OPTIONS }}
-        env:
-          COMPOSER_AUTH: '${{ secrets.COMPOSER_AUTH }}'
-        uses: "ramsey/composer-install@v2"
-        with:
-          working-directory: "${{ inputs.COMPOSER_WORKING_DIRECTORY }}"
+          composer-options: "${{ inputs.COMPOSER_OPTIONS }}"
       # Run PHP linter.
       - name: php lint
         if: ${{ inputs.PHP_LINT }}
