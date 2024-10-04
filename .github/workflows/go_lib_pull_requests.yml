@@ -3,16 +3,20 @@ on:
   workflow_call:
     inputs:
       GH_CI_USER:
-        description: 'User for GitHub auth'
+        description: "User for GitHub auth"
         required: true
         type: string
       GOPRIVATE:
-        description: 'GOPRIVATE env for go commands'
+        description: "GOPRIVATE env for go commands"
+        required: false
+        type: string
+      GOWORKSPACE:
+        description: "Go workspace mode"
         required: false
         type: string
     secrets:
       GH_CI_PAT:
-        description: 'Token password for GitHub auth'
+        description: "Token password for GitHub auth"
         required: true
 env:
   GOPRIVATE: ${{ inputs.GOPRIVATE }}
@@ -40,6 +44,7 @@ jobs:
     # runs golangci-lint
     #
     runs-on: ubuntu-latest
+    if: ${{ inputs.GOWORKSPACE != 'true' }}
     steps:
       # Checkout code to build.
       - name: Checkout repo
@@ -48,13 +53,14 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
-          go-version: '^1'
+          go-version: "^1"
       # Use auth to get access to private Git repos for Go code dependencies.
       - name: Configure git for private modules
         env:
           TOKEN: ${{ secrets.GH_CI_PAT }}
           GITHUB_USERNAME: kochava-ci
-        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
+        run:
+          git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
           "https://github.com"
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
@@ -69,7 +75,7 @@ jobs:
     strategy:
       matrix:
         # List of go versions to test on.
-        go: ['^1']
+        go: ["^1"]
     steps:
       # Checkout go code to test.
       - name: Checkout repo
@@ -84,13 +90,16 @@ jobs:
         env:
           TOKEN: ${{ secrets.GH_CI_PAT }}
           GITHUB_USERNAME: ${{ inputs.GH_CI_USER }}
-        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
+        run:
+          git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
           "https://github.com"
       # Go vet every Go module.
       - name: go vet
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
+        run:
+          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
           | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
       # Run unit test for evet Go module.
       - name: go test
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
+        run:
+          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
           | xargs -n1 -I{} bash -c "pushd {}; go test --race -v ./..."
