@@ -103,3 +103,10 @@ jobs:
         run:
           find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
           | xargs -n1 -I{} bash -c "pushd {}; go test --race -v ./..."
+      # Install govulncheck
+      - id: install-govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      # Run govulncheck for every Go module
+      - id: govulncheck
+        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
+          | xargs -n1 -I{} bash -c "pushd {}; govulncheck ./..."
