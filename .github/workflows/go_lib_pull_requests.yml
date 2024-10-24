@@ -18,6 +18,9 @@ on:
       GH_CI_PAT:
         description: "Token password for GitHub auth"
         required: true
+      CODECOV_TOKEN:
+        description: 'Token for Codecov'
+        required: false
 env:
   GOPRIVATE: ${{ inputs.GOPRIVATE }}
 jobs:
