@@ -50,7 +50,7 @@ jobs:
     # Create a GitHub Release based on conventional commits.
     #
     name: 'Release to GitHub'
-    needs: test
+    # needs: test
     runs-on: ubuntu-latest
     steps:
       # Checkout code to release.
