@@ -2,6 +2,15 @@ name: Create Github Release
 
 on:
   workflow_call:
+    inputs:
+      GH_CI_USER:
+        description: "User for GitHub auth"
+        required: true
+        type: string
+      GOPRIVATE:
+        description: "GOPRIVATE env for go commands"
+        required: false
+        type: string
     secrets:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
@@ -9,7 +18,8 @@ on:
       CODECOV_TOKEN:
         description: 'Token for Codecov'
         required: false
-
+env:
+  GOPRIVATE: ${{ inputs.GOPRIVATE }}
 jobs:
   test:
     #
