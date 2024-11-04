@@ -7,6 +7,46 @@ on:
         description: 'Token password for GitHub auth'
         required: true
 jobs:
+  test:
+      #
+      # ensure go standards and tests pass
+      #
+      runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          # List of go versions to test on.
+          go: ["^1"]
+      steps:
+        # Checkout go code to test.
+        - name: Checkout repo
+          uses: actions/checkout@v3
+        # Setup Go for each version in the matrix.
+        - name: Setup Go
+          uses: actions/setup-go@v3
+          with:
+            go-version: ${{ matrix.go }}
+        # Use auth to get access to private Git repos for Go code dependencies.
+        - name: Configure git for private modules
+          env:
+            TOKEN: ${{ secrets.GH_CI_PAT }}
+            GITHUB_USERNAME: ${{ inputs.GH_CI_USER }}
+          run:
+            git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
+            "https://github.com"
+        # Go vet every Go module.
+        - name: go vet
+          run:
+            find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
+            | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
+        # Run unit test for evet Go module.
+        - name: go test
+          run:
+            find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
+            | xargs -n1 -I{} bash -c "pushd {}; go test -coverprofile=coverage.txt --race -v ./..."
+        - name: Upload test coverage results to Codecov
+          uses: codecov/codecov-action@v4
+          with:
+            token: ${{ secrets.CODECOV_TOKEN }}
   release:
     #
     # Create a GitHub Release based on conventional commits.
