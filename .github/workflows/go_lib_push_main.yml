@@ -33,10 +33,10 @@ jobs:
     steps:
       # Checkout go code to test.
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       # Setup Go for each version in the matrix.
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
       # Use auth to get access to private Git repos for Go code dependencies.
@@ -71,7 +71,7 @@ jobs:
     steps:
       # Checkout code to release.
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       # Setup Node needed to create release.
       - name: Setup Node.js
         uses: actions/setup-node@v1
