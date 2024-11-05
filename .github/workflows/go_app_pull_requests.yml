@@ -60,7 +60,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          args: --timeout=2m --enable=bodyclose
+          args: --timeout=5m --enable=bodyclose
   test:
     #
     # ensure go standards and tests pass
