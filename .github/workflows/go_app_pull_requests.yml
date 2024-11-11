@@ -14,6 +14,9 @@ on:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
         required: true
+      CODECOV_TOKEN:
+        description: 'Token for Codecov'
+        required: false
 env:
   GOPRIVATE: ${{ inputs.GOPRIVATE }}
 jobs:
@@ -90,10 +93,14 @@ jobs:
       - name: go vet
         run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
           | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
-      # Run unit test for evet Go module. 
+      # Run unit test for evet Go module.
       - name: go test
         run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
           | xargs -n1 -I{} bash -c "pushd {}; go test -coverprofile=coverage.txt --race -v ./..."
+      - name: Upload test coverage results to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
   docker-build:
     #
     # ensures the docker image will build without pushing to the registry
