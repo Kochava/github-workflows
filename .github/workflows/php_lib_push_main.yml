@@ -14,6 +14,21 @@ on:
         required: false
         default: true
         type: boolean
+      SETUP_PHP_EXTENSIONS:
+        description: 'The extensions to enable while setting up PHP (csv)'
+        required: false
+        default: ""
+        type: string
+      SETUP_PHP_TOOLS:
+        description: 'The tools to enable while setting up PHP (csv)'
+        required: false
+        default: "composer:v1"
+        type: string
+      SETUP_PHP_COVERAGE:
+        description: 'The coverage tool to enable while setting up PHP (csv)'
+        required: false
+        default: "xdebug"
+        type: string
       COMPOSER_WORKING_DIRECTORY:
         description: 'Working directory for installing composer and running linting and unit tests'
         required: false
@@ -56,10 +71,7 @@ jobs:
       - name: Composer
         env:
           COMPOSER_AUTH: '${{ secrets.COMPOSER_AUTH }}'
-        uses: "ramsey/composer-install@v2"
-        with:
-          working-directory: "${{ inputs.COMPOSER_WORKING_DIRECTORY }}"
-          composer-options: "${{ inputs.COMPOSER_OPTIONS }}"
+        run: composer install -d ${{ inputs.COMPOSER_WORKING_DIRECTORY }} ${{ inputs.COMPOSER_OPTIONS }}
       # Run PHP linter.
       - name: php lint
         if: ${{ inputs.PHP_LINT }}
