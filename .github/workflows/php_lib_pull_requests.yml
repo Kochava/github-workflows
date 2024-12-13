@@ -28,6 +28,9 @@ on:
       COMPOSER_AUTH:
         description: 'Auth JSON for Composer'
         required: true
+      CODECOV_TOKEN:
+        description: 'Token for Codecov'
+        required: true
 
 jobs:
   commitlint:
@@ -82,4 +85,14 @@ jobs:
       # Run PHP unit tests.
       - name: phpunit
         if: ${{ inputs.PHP_UNIT }}
-        run: ${{ inputs.COMPOSER_WORKING_DIRECTORY }}/vendor/bin/phpunit
+        run: ${{ inputs.COMPOSER_WORKING_DIRECTORY }}/vendor/bin/phpunit --log-junit junit.xml --coverage-clover coverage.xml
+      - name: Upload test coverage results to Codecov
+        if: ${{ inputs.PHP_UNIT }}
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload test results to Codecov
+        if: ${{ inputs.PHP_UNIT }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
