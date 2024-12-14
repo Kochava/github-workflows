@@ -14,6 +14,11 @@ on:
         required: false
         default: true
         type: boolean
+      PHP_UNIT_TESTSUITE:
+        description: ''
+        required: false
+        default: ''
+        type: string
       SETUP_PHP_EXTENSIONS:
         description: 'The extensions to enable while setting up PHP (csv)'
         required: false
@@ -100,7 +105,7 @@ jobs:
       # Run PHP unit tests.
       - name: phpunit
         if: ${{ inputs.PHP_UNIT }}
-        run: ${{ inputs.COMPOSER_WORKING_DIRECTORY }}/vendor/bin/phpunit --log-junit junit.xml --coverage-clover coverage.xml
+        run: ${{ inputs.COMPOSER_WORKING_DIRECTORY }}/vendor/bin/phpunit --log-junit junit.xml --coverage-clover coverage.xml --testsuite ${{ inputs.PHP_UNIT_TESTSUITE }}
       - name: Upload test coverage results to Codecov
         if: ${{ inputs.PHP_UNIT }}
         uses: codecov/codecov-action@v4
