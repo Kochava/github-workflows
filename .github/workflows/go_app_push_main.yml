@@ -17,7 +17,7 @@ on:
         required: true
       CODECOV_TOKEN:
         description: 'Token for Codecov'
-        required: false
+        required: true
 env:
   GOPRIVATE: ${{ inputs.GOPRIVATE }}
 jobs:
