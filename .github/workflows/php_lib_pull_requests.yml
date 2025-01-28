@@ -14,6 +14,26 @@ on:
         required: false
         default: true
         type: boolean
+      PHP_UNIT_TESTSUITE:
+        description: ''
+        required: false
+        default: ''
+        type: string
+      SETUP_PHP_EXTENSIONS:
+        description: 'The extensions to enable while setting up PHP (csv)'
+        required: false
+        default: ""
+        type: string
+      SETUP_PHP_TOOLS:
+        description: 'The tools to enable while setting up PHP (csv)'
+        required: false
+        default: "composer:v1"
+        type: string
+      SETUP_PHP_COVERAGE:
+        description: 'The coverage tool to enable while setting up PHP (csv)'
+        required: false
+        default: "xdebug"
+        type: string
       COMPOSER_WORKING_DIRECTORY:
         description: 'Working directory for installing composer and running linting and unit tests'
         required: false
@@ -27,6 +47,9 @@ on:
     secrets:
       COMPOSER_AUTH:
         description: 'Auth JSON for Composer'
+        required: true
+      CODECOV_TOKEN:
+        description: 'Token for Codecov'
         required: true
 
 jobs:
@@ -67,14 +90,14 @@ jobs:
         uses: shivammathur/setup-php@v2 # https://github.com/marketplace/actions/setup-php-action
         with:
           php-version: ${{ matrix.php-version }}
+          extensions: ${{ inputs.SETUP_PHP_EXTENSIONS }}
+          tools: ${{ inputs.SETUP_PHP_TOOLS }}
+          coverage: ${{ inputs.SETUP_PHP_COVERAGE }}
       # Vendor PHP code.
       - name: Composer
         env:
           COMPOSER_AUTH: '${{ secrets.COMPOSER_AUTH }}'
-        uses: "ramsey/composer-install@v2"
-        with:
-          working-directory: "${{ inputs.COMPOSER_WORKING_DIRECTORY }}"
-          composer-options: "${{ inputs.COMPOSER_OPTIONS }}"
+        run: composer install -d ${{ inputs.COMPOSER_WORKING_DIRECTORY }} ${{ inputs.COMPOSER_OPTIONS }}
       # Run PHP linter.
       - name: php lint
         if: ${{ inputs.PHP_LINT }}
@@ -82,4 +105,14 @@ jobs:
       # Run PHP unit tests.
       - name: phpunit
         if: ${{ inputs.PHP_UNIT }}
-        run: ${{ inputs.COMPOSER_WORKING_DIRECTORY }}/vendor/bin/phpunit
+        run: ${{ inputs.COMPOSER_WORKING_DIRECTORY }}/vendor/bin/phpunit --log-junit junit.xml --coverage-clover coverage.xml --testsuite ${{ inputs.PHP_UNIT_TESTSUITE }}
+      - name: Upload test coverage results to Codecov
+        if: ${{ inputs.PHP_UNIT }}
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload test results to Codecov
+        if: ${{ inputs.PHP_UNIT }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
