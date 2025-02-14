@@ -14,6 +14,18 @@ on:
         description: "Go workspace mode"
         required: false
         type: string
+      GO_TEST_UNIT_TAGS:
+        description: "The tags flag for the unit test go test call. Include -tags flag. Example -tags=unit"
+        type: string
+        required: false
+        default: ""
+      GO_TEST_INTEGRATION_ENABLED:
+        type: boolean
+        default: false
+      GO_TEST_INTEGRATION_TAGS:
+        description: "The tags flag for the integration test go test call. Include -tags flag. Example -tags=integration"
+        type: string
+        default: "-tags=integration"
     secrets:
       GH_CI_PAT:
         description: "Token password for GitHub auth"
@@ -21,6 +33,12 @@ on:
       CODECOV_TOKEN:
         description: 'Token for Codecov'
         required: true
+      ARTIFACT_REGISTRY:
+        description: 'Artifact Registry address to which to publish (leave blank to not publish)'
+        required: false
+      ARTIFACT_REGISTRY_JSON_KEY:
+        description: 'Key for publishing to Artifact Registry'
+        required: false
 env:
   GOPRIVATE: ${{ inputs.GOPRIVATE }}
 jobs:
@@ -98,14 +116,37 @@ jobs:
           "https://github.com"
       # Go vet every Go module.
       - name: go vet
-        run:
+        run: |
           find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
           | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
       # Run unit test for evet Go module.
+      - name: build coverage output directories
+        run: |
+          mkdir -p coverage/unit
+          mkdir -p coverage/int
       - name: go test
-        run:
+        run: |
           find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go test -coverprofile=coverage.txt --race -v ./..."
+          | xargs -n1 -I{} bash -c "pushd {}; go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... -args -test.gocoverdir="${{ github.action_path }}/coverage/unit"
+      # Login to Artifact Registry if we're pushing to it.
+      - name: Login to Artifact Registry
+        env:
+          ARTIFACT_REGISTRY_JSON_KEY: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
+        if: ${{ env.ARTIFACT_REGISTRY_JSON_KEY && inputs.GO_TEST_INTEGRATION_ENABLED }}
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.ARTIFACT_REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
+      - name: integration tests
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} ./...
+      - name: show coverage output directories
+        run: |
+          ls ./coverage/unit
+          ls ./coverage/int
+      - name: build coverage.txt
+        run: go tool covdata textfmt -i=./coverage/int,./coverage/unit -o coverage.txt
       - name: Upload test coverage results to Codecov
         uses: codecov/codecov-action@v4
         with:
