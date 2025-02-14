@@ -138,9 +138,12 @@ jobs:
           registry: ${{ secrets.ARTIFACT_REGISTRY }}
           username: _json_key
           password: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
+      # This will run go tests again, and again output to the coverage/unit directory.
+      # this relies on the tests themselves compiling the binary with `-cover` and setting GOCOVERDIR to /coverage/int
+      # to seperate out any integration tests
       - name: integration tests
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
-        run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} ./...
+        run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} ./... -args -test.gocoverdir="${{ github.action_path }}/coverage/unit"
       - name: show coverage output directories
         run: |
           ls ./coverage/unit
