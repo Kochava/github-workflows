@@ -126,18 +126,16 @@ jobs:
           "https://github.com"
       # Go vet every Go module.
       - name: go vet
-        run: |
-          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
+        run:
+          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
       # Run unit test for evet Go module.
       - name: build coverage output directories
         run: |
           mkdir -p coverage/unit
           mkdir -p coverage/int
       - name: go test
-        run: |
-          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... -args -test.gocoverdir="${{ github.action_path }}/coverage/unit"
+        run:
+          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... -args -test.gocoverdir="${{ github.action_path }}/coverage/unit"
       # relies on the tests themselves compiling the binary with `-cover` and setting GOCOVERDIR to /coverage/int
       # to seperate out any integration tests
       - name: integration tests
