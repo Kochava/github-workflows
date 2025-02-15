@@ -124,6 +124,9 @@ jobs:
         run:
           git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
           "https://github.com"
+      # Vendor Go code needed to build app.
+      - name: go mod vendor
+        run: go mod vendor
       # Go vet every Go module.
       - name: go vet
         run:
