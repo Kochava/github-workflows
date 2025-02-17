@@ -126,7 +126,7 @@ jobs:
           "https://github.com"
       # Vendor Go code needed to build app.
       - name: go mod vendor
-        run: go mod vendor
+        run: go mod vendor | go work vendor
       # Go vet every Go module.
       - name: go vet
         run:
