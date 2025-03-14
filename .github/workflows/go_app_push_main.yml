@@ -11,6 +11,18 @@ on:
         description: "GOPRIVATE env for go commands"
         required: false
         type: string
+      GO_TEST_UNIT_TAGS:
+        description: "The tags flag for the unit test go test call. Include -tags flag. Example -tags=unit"
+        type: string
+        required: false
+        default: ""
+      GO_TEST_INTEGRATION_ENABLED:
+        type: boolean
+        default: false
+      GO_TEST_INTEGRATION_TAGS:
+        description: "The tags flag for the integration test go test call. Include -tags flag. Example -tags=integration"
+        type: string
+        default: "-tags=integration"
     secrets:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
@@ -18,6 +30,12 @@ on:
       CODECOV_TOKEN:
         description: 'Token for Codecov'
         required: true
+      ARTIFACT_REGISTRY:
+        description: 'Artifact Registry address to which to publish (leave blank to not publish)'
+        required: false
+      ARTIFACT_REGISTRY_JSON_KEY:
+        description: 'Key for publishing to Artifact Registry'
+        required: false
 env:
   GOPRIVATE: ${{ inputs.GOPRIVATE }}
 jobs:
@@ -39,6 +57,15 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+      - name: Login to Artifact Registry
+        env:
+          ARTIFACT_REGISTRY_JSON_KEY: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
+        if: ${{ env.ARTIFACT_REGISTRY_JSON_KEY }}
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.ARTIFACT_REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
       # Use auth to get access to private Git repos for Go code dependencies.
       - name: Configure git for private modules
         env:
@@ -46,14 +73,31 @@ jobs:
           GITHUB_USERNAME: ${{ inputs.GH_CI_USER }}
         run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
           "https://github.com"
+      # Vendor Go code needed to build app.
+      - name: go mod vendor
+        run: go mod vendor
       # Go vet every Go module.
       - name: go vet
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
-      # Run unit test for evet Go module.
-      - name: go test
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go test -coverprofile=coverage.txt --race -v ./..."
+        run:
+          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
+      - name: build coverage output directories
+        run: |
+          mkdir -p coverage/unit
+          mkdir -p coverage/int
+          - name: go test
+          run:
+            find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... -args -test.gocoverdir=\"${{ github.workspace }}/coverage/unit\""
+        # relies on the tests themselves compiling the binary with `-cover` and setting GOCOVERDIR to /coverage/int
+        # to seperate out any integration tests
+      - name: integration tests
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} ./...
+      - name: show coverage output directories
+        run: |
+          ls ./coverage/unit
+          ls ./coverage/int
+      - name: build coverage.txt
+        run: go tool covdata textfmt -i=./coverage/int,./coverage/unit -o coverage.txt
       - name: Upload test coverage results to Codecov
         uses: codecov/codecov-action@v4
         with:
