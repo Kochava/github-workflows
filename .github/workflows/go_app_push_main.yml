@@ -84,9 +84,9 @@ jobs:
         run: |
           mkdir -p coverage/unit
           mkdir -p coverage/int
-          - name: go test
-          run:
-            find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... -args -test.gocoverdir=\"${{ github.workspace }}/coverage/unit\""
+      - name: go test
+        run:
+          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... -args -test.gocoverdir=\"${{ github.workspace }}/coverage/unit\""
         # relies on the tests themselves compiling the binary with `-cover` and setting GOCOVERDIR to /coverage/int
         # to seperate out any integration tests
       - name: integration tests
