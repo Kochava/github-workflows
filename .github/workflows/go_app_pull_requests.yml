@@ -72,7 +72,7 @@ jobs:
     strategy:
       matrix:
         # List of go versions to test on.
-        go: [ '^1' ]
+        go: ['^1']
     steps:
       # Checkout go code to test.
       - name: Checkout repo
