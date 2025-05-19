@@ -103,11 +103,17 @@ jobs:
           | go-junit-report -set-exit-code > junit_report.xml || true
       - name: Test Report
         uses: dorny/test-reporter@v1
-        if: success() || failure()    # run this step even if previous step failed
+        if: success() || failure()
         with:
-          name: Test Report   # Name of the check run which will be created
-          path: junit_report.xml   # Path to test results
-          reporter: java-junit        # Format of test results
+          name: Test Report
+          path: junit_report.xml
+          reporter: java-junit
+      - uses: codecov/test-results-action@v1
+        with:
+          fail_ci_if_error: true # optional (default = false)
+          files: ./junit_report.xml
+          name: junit-report
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload test coverage results to Codecov
         uses: codecov/codecov-action@v4
         with:
