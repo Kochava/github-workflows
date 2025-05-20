@@ -131,6 +131,20 @@ jobs:
       - name: go test
         run:
           find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... -args -test.gocoverdir=\"${{ github.workspace }}/coverage/unit\""
+          | go-junit-report -set-exit-code > junit_report.xml || true
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Test Report
+          path: junit_report.xml
+          reporter: java-junit
+      - uses: codecov/test-results-action@v1
+        with:
+          fail_ci_if_error: true # optional (default = false)
+          files: ./junit_report.xml
+          name: junit-report
+          token: ${{ secrets.CODECOV_TOKEN }}
       # relies on the tests themselves compiling the binary with `-cover` and setting GOCOVERDIR to /coverage/int
       # to seperate out any integration tests
       - name: integration tests
