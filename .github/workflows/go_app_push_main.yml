@@ -80,6 +80,9 @@ jobs:
       - name: go vet
         run:
           find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
+      # Install go-junit-report to format test results.
+      - name: Install go-junit-report
+        run: go install github.com/jstemmer/go-junit-report@v2.1.0
       - name: build coverage output directories
         run: |
           mkdir -p coverage/unit
@@ -88,14 +91,15 @@ jobs:
         run:
           find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... -args -test.gocoverdir=\"${{ github.workspace }}/coverage/unit\""
           | go-junit-report -set-exit-code > junit_report.xml || true
-      - name: Test Report
+      - name: Unit Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
-          name: Test Report
+          name: Unit Test Report
           path: junit_report.xml
           reporter: java-junit
-      - uses: codecov/test-results-action@v1
+      - name: Upload unit test coverage results to Codecov
+        uses: codecov/test-results-action@v1
         with:
           fail_ci_if_error: true # optional (default = false)
           files: ./junit_report.xml
@@ -106,6 +110,7 @@ jobs:
       - name: integration tests
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} ./...
+             | go-junit-report -set-exit-code > junit_integration_report.xml || true
       - name: show coverage output directories
         run: |
           ls ./coverage/unit
@@ -115,6 +120,20 @@ jobs:
       - name: Upload test coverage results to Codecov
         uses: codecov/codecov-action@v4
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Integration Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Integration Test Report
+          path: junit_integration_report.xml
+          reporter: java-junit
+      - name: Upload integration test coverage results to Codecov
+        uses: codecov/test-results-action@v1
+        with:
+          fail_ci_if_error: true # optional (default = false)
+          files: ./junit_report.xml
+          name: junit-report
           token: ${{ secrets.CODECOV_TOKEN }}
   release:
     #
