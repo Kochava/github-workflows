@@ -54,7 +54,7 @@ jobs:
           | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
       # Install go-junit-report to format test results.
       - name: Install go-junit-report
-        run: go install github.com/jstemmer/go-junit-report@latest
+        run: go install github.com/jstemmer/go-junit-report@v2.1.0
       # Run unit test for evet Go module.
       - name: go test
         run:
