@@ -24,6 +24,14 @@ There should also be tags that are updated after every update to a major version
 
 - example: `go/app/v1`
 
+To update a tag, you can use run the following commands after merging your changes to main:
+```bash
+git checkout main
+git pull
+git tag go/app/v1 -f
+git push origin go/app/v1 -f
+```
+
 This will allow users to specify a major version and always be up to date with minor updates.
 
 As such, whenever changes are made to workflow templates and a tag is to be created, the major version should increment if there are any major changes to a workflow. This is up to the discresion of the person making the tag, but some possible reasons to increment the major version include but are not limited to:
