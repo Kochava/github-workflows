@@ -13,10 +13,10 @@ on:
         type: string
     secrets:
       GH_CI_PAT:
-        description: 'Token password for GitHub auth'
+        description: "Token password for GitHub auth"
         required: true
       CODECOV_TOKEN:
-        description: 'Token for Codecov'
+        description: "Token for Codecov"
         required: true
 env:
   GOPRIVATE: ${{ inputs.GOPRIVATE }}
@@ -29,7 +29,7 @@ jobs:
     strategy:
       matrix:
         # List of go versions to test on.
-        go: ['^1']
+        go: ["^1"]
     steps:
       # Checkout go code to test.
       - name: Checkout repo
@@ -44,20 +44,23 @@ jobs:
         env:
           TOKEN: ${{ secrets.GH_CI_PAT }}
           GITHUB_USERNAME: ${{ inputs.GH_CI_USER }}
-        run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
+        run:
+          git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
           "https://github.com"
       # Go vet every Go module.
       - name: go vet
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
+        run:
+          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
           | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
       # Install go-junit-report to format test results.
       - name: Install go-junit-report
         run: go install github.com/jstemmer/go-junit-report/v2@v2.1.0
       # Run unit test for evet Go module.
       - name: go test
-        run: find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go test -coverprofile=coverage.txt --race -v ./..."
-          | go-junit-report -set-exit-code > junit_report.xml || true
+        run: |
+          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname \
+          | xargs -n1 -I{} bash -c "pushd {}; go test -coverprofile=coverage.txt --race -v ./..." \
+          | tee >(go-junit-report -set-exit-code > junit_report.xml)
       - name: Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()
@@ -79,7 +82,7 @@ jobs:
     #
     # Create a GitHub Release based on conventional commits.
     #
-    name: 'Release to GitHub'
+    name: "Release to GitHub"
     # needs: test
     runs-on: ubuntu-latest
     needs: test
