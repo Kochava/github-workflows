@@ -134,7 +134,10 @@ jobs:
       - name: go test
         run:
           find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... -args -test.gocoverdir=\"${{ github.workspace }}/coverage/unit\""
-          | go-junit-report -set-exit-code > junit_report.xml || true
+          | tee unit_test_output.txt
+      - name: Build Unit Test Junit report
+        run:
+          go-junit-report -in unit_test_output.txt -set-exit-code > junit_report.xml || true
       - name: Unit Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()
@@ -154,6 +157,16 @@ jobs:
       - name: integration tests
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} ./...
+              | tee integration_test_output.txt
+      - name: Build Integration Test Junit report
+        run: go-junit-report -in integration_test_output.txt -set-exit-code > junit_integration_report.xml || true
+      - name: Integration Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Integration Test Report
+          path: junit_integration_report.xml
+          reporter: java-junit
       - name: show coverage output directories
         run: |
           ls ./coverage/unit
