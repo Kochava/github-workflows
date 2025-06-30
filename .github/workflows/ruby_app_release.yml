@@ -13,13 +13,6 @@ on:
       ARTIFACT_REGISTRY_JSON_KEY:
         description: 'Key for publishing to Artifact Registry'
         required: false
-      # Container Registry arguments
-      CONTAINER_REGISTRY:
-        description: 'Container Registry address to which to publish (leave blank to not publish)'
-        required: false
-      CONTAINER_REGISTRY_JSON_KEY:
-        description: 'Key for publishing to Container Registry'
-        required: false
 
 jobs:
   push:
@@ -42,13 +35,6 @@ jobs:
         if: ${{ env.ARTIFACT_REGISTRY }}
         run: |
           echo "ARTIFACT_REGISTRY_IMAGE_NAME=${{ secrets.ARTIFACT_REGISTRY }}/${{ github.repository }}" >> $GITHUB_ENV
-      # Make the docker fields for Container Registry if we're pushing to it.
-      - name: Construct Container Registry fields
-        env:
-          CONTAINER_REGISTRY: ${{ secrets.CONTAINER_REGISTRY }}
-        if: ${{ env.CONTAINER_REGISTRY }}
-        run: |
-          echo "CONTAINER_REGISTRY_IMAGE_NAME=${{ secrets.CONTAINER_REGISTRY }}/${{ steps.parse_repo_name.outputs.repo_name }}" >> $GITHUB_ENV
       # Create docker image meta data. Docker tags include the Git tag itself and the sematic version parsing of that tag if possible.
       - name: Docker release meta
         id: release
@@ -56,7 +42,6 @@ jobs:
         with:
           images: |
             ${{ env.ARTIFACT_REGISTRY_IMAGE_NAME }}
-            ${{ env.CONTAINER_REGISTRY_IMAGE_NAME }}
           flavor: |
             latest=false
           tags: |
@@ -72,22 +57,12 @@ jobs:
           registry: ${{ secrets.ARTIFACT_REGISTRY }}
           username: _json_key
           password: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
-      # Login to Container Registry if we're pushing to it.
-      - name: Login to Container Registry
-        env:
-          CONTAINER_REGISTRY_JSON_KEY: ${{ secrets.CONTAINER_REGISTRY_JSON_KEY }}
-        if: ${{ env.CONTAINER_REGISTRY_JSON_KEY }}
-        uses: docker/login-action@v2
-        with:
-          registry: ${{ secrets.CONTAINER_REGISTRY }}
-          username: _json_key
-          password: ${{ secrets.CONTAINER_REGISTRY_JSON_KEY }}
       # Setup Docker builder needed to build multi-architectural images.
       - name: Setup Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
       # Build and push the image.
-      - name: Build and Push to Artifact Registry and Container Registry
+      - name: Build and Push to Artifact Registry
         uses: docker/build-push-action@v3
         with:
           push: true
