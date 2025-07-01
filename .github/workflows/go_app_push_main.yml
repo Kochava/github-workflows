@@ -115,6 +115,7 @@ jobs:
         run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} ./...
              | tee integration_test_output.txt
       - name: Build Integration Test Junit report
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         run: go-junit-report -in integration_test_output.txt -set-exit-code > junit_integration_report.xml || true
       - name: show coverage output directories
         run: |

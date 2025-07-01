@@ -159,10 +159,11 @@ jobs:
         run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} ./...
               | tee integration_test_output.txt
       - name: Build Integration Test Junit report
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         run: go-junit-report -in integration_test_output.txt -set-exit-code > junit_integration_report.xml || true
       - name: Integration Test Report
         uses: dorny/test-reporter@v1
-        if: success() || failure()
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         with:
           name: Integration Test Report
           path: junit_integration_report.xml
