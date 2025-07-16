@@ -22,6 +22,10 @@ on:
         description: "The tags flag for the integration test go test call. Include -tags flag. Example -tags=integration"
         type: string
         default: "-tags=integration"
+      GO_TEST_INTEGRATION_TIMEOUT:
+        description: "The duration before tests are stopped"
+        type: string
+        default: "10m"
     secrets:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
@@ -156,7 +160,7 @@ jobs:
       # to seperate out any integration tests
       - name: integration tests
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
-        run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} ./...
+        run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./...
               | tee integration_test_output.txt
       - name: Build Integration Test Junit report
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
