@@ -231,12 +231,6 @@ jobs:
       - name: Setup Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v3
-      - name: Docker release meta
-        id: release
-        uses: docker/metadata-action@v4
-        with:
-          images:  ${{ github.repository }}
-          tags: type=sha
 
       # Build the app.
       - name: Build
