@@ -261,13 +261,19 @@ jobs:
 
             if [ -f "/tmp/.custom-docker-cache/${filename}.tar" ]; then
               echo "Loading $image from cache..."
-              docker load -i "/tmp/.custom-docker-cache/${filename}.tar"
+              if docker load -i "/tmp/.custom-docker-cache/${filename}.tar"; then
+                echo "✓ Successfully loaded $image from cache"
+              else
+                echo "✗ Cache corrupted, pulling $image..."
+                docker pull "$image"
+                docker save "$image" -o "/tmp/.custom-docker-cache/${filename}.tar" || echo "Warning: failed to cache $image"
+              fi
             else
               echo "Cache miss, pulling $image..."
-              docker pull "$image" || echo "Warning: failed to pull $image"
+              docker pull "$image"
 
               # Save for next time
-              docker save "$image" -o "/tmp/.custom-docker-cache/${filename}.tar" || echo "Warning: failed to save $image"
+              docker save "$image" -o "/tmp/.custom-docker-cache/${filename}.tar" || echo "Warning: failed to cache $image"
             fi
           done
 
