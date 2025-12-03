@@ -26,6 +26,11 @@ on:
         description: "The duration before tests are stopped"
         type: string
         default: "10m"
+      DOCKER_CACHE_IMAGES:
+        description: "Comma-separated list of Docker images to pre-pull and cache for integration tests"
+        type: string
+        required: false
+        default: ""
     secrets:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
@@ -189,6 +194,52 @@ jobs:
 
           # Verify image is available
           docker images | grep integrations-testsuite || echo "Warning: integrations-testsuite image not found"
+      # Cache custom Docker images (specified by caller)
+      - name: Cache custom Docker images
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && inputs.DOCKER_CACHE_IMAGES != '' }}
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.custom-docker-cache
+          key: docker-custom-images-${{ runner.os }}-${{ hashFiles(inputs.DOCKER_CACHE_IMAGES) }}
+          restore-keys: |
+            docker-custom-images-${{ runner.os }}-
+      # Pre-pull custom Docker images before running tests
+      - name: Load or pull custom Docker images
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && inputs.DOCKER_CACHE_IMAGES != '' }}
+        env:
+          IMAGES_LIST: ${{ inputs.DOCKER_CACHE_IMAGES }}
+        run: |
+          echo "Processing custom Docker images: $IMAGES_LIST"
+
+          # Convert comma-separated string to array
+          IFS=',' read -ra IMAGES <<< "$IMAGES_LIST"
+
+          mkdir -p /tmp/.custom-docker-cache
+
+          for image in "${IMAGES[@]}"; do
+            # Trim whitespace
+            image=$(echo "$image" | xargs)
+
+            if [ -z "$image" ]; then
+              continue
+            fi
+
+            filename=$(echo "$image" | tr '/:' '_')
+
+            if [ -f "/tmp/.custom-docker-cache/${filename}.tar" ]; then
+              echo "Loading $image from cache..."
+              docker load -i "/tmp/.custom-docker-cache/${filename}.tar"
+            else
+              echo "Cache miss, pulling $image..."
+              docker pull "$image" || echo "Warning: failed to pull $image"
+
+              # Save for next time
+              docker save "$image" -o "/tmp/.custom-docker-cache/${filename}.tar" || echo "Warning: failed to save $image"
+            fi
+          done
+
+          echo "✅ Custom Docker images ready"
+          docker images
       # relies on the tests themselves compiling the binary with `-cover` and setting GOCOVERDIR to /coverage/int
       # to seperate out any integration tests
       - name: integration tests
