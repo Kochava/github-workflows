@@ -226,7 +226,11 @@ jobs:
           fi
 
           # Verify image is available
-          docker images | grep integrations-testsuite || echo "Warning: integrations-testsuite image not found"
+          if ! docker images | grep -q integrations-testsuite; then
+            echo "Error: integrations-testsuite image not found after load/pull"
+            exit 1
+          fi
+          echo "✅ integrations-testsuite image verified"
       # Cache custom Docker images (specified by caller)
       - name: Cache custom Docker images
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && inputs.DOCKER_CACHE_IMAGES != '' }}
