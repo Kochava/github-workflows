@@ -244,7 +244,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.custom-docker-cache
-          key: docker-custom-images-${{ runner.os }}-${{ steps.images-hash.outputs.hash }}-${{ github.run_number % 20 }}-v1
+          key: docker-custom-images-${{ runner.os }}-${{ steps.images-hash.outputs.hash }}-${{ github.run_number - (github.run_number % 20) }}-v1
           restore-keys: |
             docker-custom-images-${{ runner.os }}-${{ steps.images-hash.outputs.hash }}-
       # Pre-pull custom Docker images before running tests
