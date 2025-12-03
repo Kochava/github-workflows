@@ -208,7 +208,14 @@ jobs:
           # Try to load from cache first
           if [ -f /tmp/.integrations-testsuite-cache/image.tar ]; then
             echo "Loading integrations-testsuite from cache..."
-            docker load -i /tmp/.integrations-testsuite-cache/image.tar
+            if docker load -i /tmp/.integrations-testsuite-cache/image.tar; then
+              echo "✓ Successfully loaded from cache"
+            else
+              echo "✗ Cache corrupted, pulling ${IMAGE}..."
+              docker pull ${IMAGE}
+              mkdir -p /tmp/.integrations-testsuite-cache
+              docker save ${IMAGE} -o /tmp/.integrations-testsuite-cache/image.tar
+            fi
           else
             echo "Cache miss, pulling ${IMAGE}..."
             docker pull ${IMAGE}
