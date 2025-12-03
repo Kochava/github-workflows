@@ -150,7 +150,7 @@ jobs:
 
           echo "Disk space after cleanup:"
           df -h
-      # Run unit test for evet Go module.
+      # Run unit test for every Go module.
       - name: build coverage output directories
         run: |
           mkdir -p coverage/unit
@@ -176,13 +176,24 @@ jobs:
           files: ./junit_report.xml
           name: junit-report
           token: ${{ secrets.CODECOV_TOKEN }}
+      # Get the digest of the latest integrations-testsuite image
+      - name: Get integrations-testsuite image digest
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        id: image-digest
+        env:
+          ARTIFACT_REGISTRY: ${{ secrets.ARTIFACT_REGISTRY }}
+        run: |
+          IMAGE="${ARTIFACT_REGISTRY}/kochava/integrations-testsuite:latest"
+          # Get digest without pulling the full image (only manifest)
+          DIGEST=$(docker manifest inspect ${IMAGE} | sha256sum | cut -d' ' -f1)
+          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
       # Cache Docker images for integration tests
       - name: Cache integrations-testsuite Docker image
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         uses: actions/cache@v4
         with:
           path: /tmp/.integrations-testsuite-cache
-          key: docker-integrations-testsuite-${{ runner.os }}-latest
+          key: docker-integrations-testsuite-${{ runner.os }}-${{ steps.image-digest.outputs.digest }}
           restore-keys: |
             docker-integrations-testsuite-${{ runner.os }}-
       # Pre-pull integrations-testsuite image before running tests
@@ -256,7 +267,7 @@ jobs:
           echo "✅ Custom Docker images ready"
           docker images
       # relies on the tests themselves compiling the binary with `-cover` and setting GOCOVERDIR to /coverage/int
-      # to seperate out any integration tests
+      # to separate out any integration tests
       - name: integration tests
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./...
