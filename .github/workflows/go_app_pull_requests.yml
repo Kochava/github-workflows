@@ -231,15 +231,22 @@ jobs:
             exit 1
           fi
           echo "✅ integrations-testsuite image verified"
+      # Get hash of Docker images list for cache key
+      - name: Hash Docker images list
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && inputs.DOCKER_CACHE_IMAGES != '' }}
+        id: images-hash
+        run: |
+          HASH=$(echo "${{ inputs.DOCKER_CACHE_IMAGES }}" | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "hash=${HASH}" >> $GITHUB_OUTPUT
       # Cache custom Docker images (specified by caller)
       - name: Cache custom Docker images
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && inputs.DOCKER_CACHE_IMAGES != '' }}
         uses: actions/cache@v4
         with:
           path: /tmp/.custom-docker-cache
-          key: docker-custom-images-${{ runner.os }}-${{ github.run_number % 20 }}-v1
+          key: docker-custom-images-${{ runner.os }}-${{ steps.images-hash.outputs.hash }}-${{ github.run_number % 20 }}-v1
           restore-keys: |
-            docker-custom-images-${{ runner.os }}-
+            docker-custom-images-${{ runner.os }}-${{ steps.images-hash.outputs.hash }}-
       # Pre-pull custom Docker images before running tests
       - name: Load or pull custom Docker images
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && inputs.DOCKER_CACHE_IMAGES != '' }}
