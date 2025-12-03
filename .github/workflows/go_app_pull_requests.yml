@@ -156,6 +156,37 @@ jobs:
           files: ./junit_report.xml
           name: junit-report
           token: ${{ secrets.CODECOV_TOKEN }}
+      # Cache Docker images for integration tests
+      - name: Cache integrations-testsuite Docker image
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.integrations-testsuite-cache
+          key: docker-integrations-testsuite-${{ runner.os }}-latest
+          restore-keys: |
+            docker-integrations-testsuite-${{ runner.os }}-
+      # Pre-pull integrations-testsuite image before running tests
+      - name: Load or pull integrations-testsuite Docker image
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        env:
+          ARTIFACT_REGISTRY: ${{ secrets.ARTIFACT_REGISTRY }}
+        run: |
+          # Try to load from cache first
+          if [ -f /tmp/.integrations-testsuite-cache/image.tar ]; then
+            echo "Loading integrations-testsuite from cache..."
+            docker load -i /tmp/.integrations-testsuite-cache/image.tar
+          else
+            echo "Cache miss, pulling integrations-testsuite:latest..."
+            docker pull ${ARTIFACT_REGISTRY}/integrations-testsuite:latest
+
+            # Save for next time
+            mkdir -p /tmp/.integrations-testsuite-cache
+            docker save ${ARTIFACT_REGISTRY}/integrations-testsuite:latest \
+              -o /tmp/.integrations-testsuite-cache/image.tar
+          fi
+
+          # Verify image is available
+          docker images | grep integrations-testsuite || echo "Warning: integrations-testsuite image not found"
       # relies on the tests themselves compiling the binary with `-cover` and setting GOCOVERDIR to /coverage/int
       # to seperate out any integration tests
       - name: integration tests
