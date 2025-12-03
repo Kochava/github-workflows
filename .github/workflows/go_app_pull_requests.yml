@@ -226,7 +226,7 @@ jobs:
           fi
 
           # Verify image is available
-          if ! docker images | grep -q integrations-testsuite; then
+          if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
             echo "Error: integrations-testsuite image not found after load/pull"
             exit 1
           fi
@@ -237,7 +237,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.custom-docker-cache
-          key: docker-custom-images-${{ runner.os }}-${{ github.run_number / 20 }}-v1
+          key: docker-custom-images-${{ runner.os }}-${{ github.run_number % 20 }}-v1
           restore-keys: |
             docker-custom-images-${{ runner.os }}-
       # Pre-pull custom Docker images before running tests
