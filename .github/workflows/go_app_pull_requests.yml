@@ -171,18 +171,20 @@ jobs:
         env:
           ARTIFACT_REGISTRY: ${{ secrets.ARTIFACT_REGISTRY }}
         run: |
+          # Full image path with repository namespace
+          IMAGE="${ARTIFACT_REGISTRY}/kochava/integrations-testsuite:latest"
+
           # Try to load from cache first
           if [ -f /tmp/.integrations-testsuite-cache/image.tar ]; then
             echo "Loading integrations-testsuite from cache..."
             docker load -i /tmp/.integrations-testsuite-cache/image.tar
           else
-            echo "Cache miss, pulling integrations-testsuite:latest..."
-            docker pull ${ARTIFACT_REGISTRY}/integrations-testsuite:latest
+            echo "Cache miss, pulling ${IMAGE}..."
+            docker pull ${IMAGE}
 
             # Save for next time
             mkdir -p /tmp/.integrations-testsuite-cache
-            docker save ${ARTIFACT_REGISTRY}/integrations-testsuite:latest \
-              -o /tmp/.integrations-testsuite-cache/image.tar
+            docker save ${IMAGE} -o /tmp/.integrations-testsuite-cache/image.tar
           fi
 
           # Verify image is available
