@@ -215,7 +215,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.custom-docker-cache
-          key: docker-custom-images-${{ runner.os }}-${{ hashFiles(inputs.DOCKER_CACHE_IMAGES) }}
+          key: docker-custom-images-${{ runner.os }}-${{ hashFiles('go.sum') }}-v1
           restore-keys: |
             docker-custom-images-${{ runner.os }}-
       # Pre-pull custom Docker images before running tests
