@@ -357,7 +357,7 @@ jobs:
 
       # Build the app.
       - name: Build
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           push: false
           provenance: false
