@@ -238,13 +238,16 @@ jobs:
         run: |
           HASH=$(echo "${{ inputs.DOCKER_CACHE_IMAGES }}" | sha256sum | cut -d' ' -f1 | head -c 12)
           echo "hash=${HASH}" >> $GITHUB_OUTPUT
+          # Calculate cache slot (invalidate every 20 runs)
+          CACHE_SLOT=$(( ${{ github.run_number }} - (${{ github.run_number }} % 20) ))
+          echo "cache-slot=${CACHE_SLOT}" >> $GITHUB_OUTPUT
       # Cache custom Docker images (specified by caller)
       - name: Cache custom Docker images
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && inputs.DOCKER_CACHE_IMAGES != '' }}
         uses: actions/cache@v4
         with:
           path: /tmp/.custom-docker-cache
-          key: docker-custom-images-${{ runner.os }}-${{ steps.images-hash.outputs.hash }}-${{ github.run_number - (github.run_number % 20) }}-v1
+          key: docker-custom-images-${{ runner.os }}-${{ steps.images-hash.outputs.hash }}-${{ steps.images-hash.outputs.cache-slot }}-v1
           restore-keys: |
             docker-custom-images-${{ runner.os }}-${{ steps.images-hash.outputs.hash }}-
       # Pre-pull custom Docker images before running tests
