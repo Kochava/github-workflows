@@ -214,7 +214,7 @@ jobs:
               echo "✗ Cache corrupted, pulling ${IMAGE}..."
               docker pull ${IMAGE}
               mkdir -p /tmp/.integrations-testsuite-cache
-              docker save ${IMAGE} -o /tmp/.integrations-testsuite-cache/image.tar
+              docker save ${IMAGE} -o /tmp/.integrations-testsuite-cache/image.tar || echo "Warning: failed to cache image"
             fi
           else
             echo "Cache miss, pulling ${IMAGE}..."
@@ -222,7 +222,7 @@ jobs:
 
             # Save for next time
             mkdir -p /tmp/.integrations-testsuite-cache
-            docker save ${IMAGE} -o /tmp/.integrations-testsuite-cache/image.tar
+            docker save ${IMAGE} -o /tmp/.integrations-testsuite-cache/image.tar || echo "Warning: failed to cache image"
           fi
 
           # Verify image is available
