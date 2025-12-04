@@ -280,12 +280,12 @@ jobs:
                 echo "✓ Successfully loaded $image from cache"
               else
                 echo "✗ Cache corrupted, pulling $image..."
-                docker pull "$image"
+                docker pull "$image" || exit 1
                 docker save "$image" -o "/tmp/.custom-docker-cache/${filename}.tar" || echo "Warning: failed to cache $image"
               fi
             else
               echo "Cache miss, pulling $image..."
-              docker pull "$image"
+              docker pull "$image" || exit 1
 
               # Save for next time
               docker save "$image" -o "/tmp/.custom-docker-cache/${filename}.tar" || echo "Warning: failed to cache $image"
