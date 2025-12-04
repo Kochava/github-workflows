@@ -213,13 +213,13 @@ jobs:
               echo "✓ Successfully loaded from cache"
             else
               echo "✗ Cache corrupted, pulling ${IMAGE}..."
-              docker pull ${IMAGE}
+              docker pull ${IMAGE} || exit 1
               mkdir -p /tmp/.integrations-testsuite-cache
               docker save ${IMAGE} -o /tmp/.integrations-testsuite-cache/image.tar || echo "Warning: failed to cache image"
             fi
           else
             echo "Cache miss, pulling ${IMAGE}..."
-            docker pull ${IMAGE}
+            docker pull ${IMAGE} || exit 1
 
             # Save for next time
             mkdir -p /tmp/.integrations-testsuite-cache
