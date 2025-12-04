@@ -185,7 +185,8 @@ jobs:
         run: |
           IMAGE="${ARTIFACT_REGISTRY}/kochava/integrations-testsuite:latest"
           # Get digest without pulling the full image (only manifest)
-          DIGEST=$(docker manifest inspect ${IMAGE} | sha256sum | cut -d' ' -f1)
+          # Extract the actual image digest from the manifest
+          DIGEST=$(docker manifest inspect ${IMAGE} | jq -r '.manifests[0].digest // .config.digest' | sed 's/sha256://')
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
       # Cache Docker images for integration tests
       - name: Cache integrations-testsuite Docker image
