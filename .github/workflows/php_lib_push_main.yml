@@ -92,11 +92,7 @@ jobs:
         if: ${{ inputs.PHP_UNIT }}
         uses: codecov/codecov-action@v5
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-      - name: Upload test results to Codecov
-        if: ${{ inputs.PHP_UNIT }}
-        uses: codecov/test-results-action@v1
-        with:
+          report-type: test_results
           token: ${{ secrets.CODECOV_TOKEN }}
   release:
     #

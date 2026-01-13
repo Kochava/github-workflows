@@ -68,15 +68,12 @@ jobs:
           name: Test Report
           path: junit_report.xml
           reporter: java-junit
-      - uses: codecov/test-results-action@v1
+      - uses: codecov/codecov-action@v5
         with:
+          report-type: test_results
           fail_ci_if_error: true # optional (default = false)
           files: ./junit_report.xml
           name: junit-report
-          token: ${{ secrets.CODECOV_TOKEN }}
-      - name: Upload test coverage results to Codecov
-        uses: codecov/codecov-action@v5
-        with:
           token: ${{ secrets.CODECOV_TOKEN }}
   release:
     #
