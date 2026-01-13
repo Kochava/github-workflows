@@ -108,7 +108,7 @@ jobs:
         run: ${{ inputs.COMPOSER_WORKING_DIRECTORY }}/vendor/bin/phpunit --log-junit junit.xml --coverage-clover coverage.xml --testsuite ${{ inputs.PHP_UNIT_TESTSUITE }}
       - name: Upload test coverage results to Codecov
         if: ${{ inputs.PHP_UNIT }}
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload test results to Codecov
