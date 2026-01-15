@@ -21,24 +21,38 @@ on:
 env:
   GOPRIVATE: ${{ inputs.GOPRIVATE }}
 jobs:
+  discover-modules:
+    #
+    # finds all go modules in the repository
+    #
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.set-modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find Go modules
+        id: set-modules
+        run: |
+          MODS=$(find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | jq -R . | jq -s .)
+          echo "modules=$MODS" >> $GITHUB_OUTPUT
   test:
     #
     # ensure go standards and tests pass
     #
+    needs: discover-modules
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # List of go versions to test on.
-        go: ["^1"]
+        module: ${{ fromJson(needs.discover-modules.outputs.modules) }}
     steps:
       # Checkout go code to test.
       - name: Checkout repo
         uses: actions/checkout@v4
-      # Setup Go for each version in the matrix.
+      # Setup Go.
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version: "^1"
       # Use auth to get access to private Git repos for Go code dependencies.
       - name: Configure git for private modules
         env:
@@ -47,37 +61,35 @@ jobs:
         run:
           git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
           "https://github.com"
-      # Go vet every Go module.
+      # Go vet the module.
       - name: go vet
-        run:
-          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
+        working-directory: ${{ matrix.module }}
+        run: go vet ./...
       # Install go-junit-report to format test results.
       - name: Install go-junit-report
         run: go install github.com/jstemmer/go-junit-report/v2@v2.1.0
-      # Run unit test for evet Go module.
+      # Run unit tests for the module.
       - name: go test
-        run:
-          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname
-          | xargs -n1 -I{} bash -c "pushd {}; go test -coverprofile=coverage.txt --race -v ./..."
-          | go-junit-report -set-exit-code > junit_report.xml || true
+        working-directory: ${{ matrix.module }}
+        run: go test -coverprofile=coverage.txt --race -v ./... 2>&1 | go-junit-report -set-exit-code > junit_report.xml || true
       - name: Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
-          name: Test Report
-          path: junit_report.xml
+          name: Test Report (${{ matrix.module }})
+          path: ${{ matrix.module }}/junit_report.xml
           reporter: java-junit
       - uses: codecov/test-results-action@v1
         with:
           fail_ci_if_error: true # optional (default = false)
-          files: ./junit_report.xml
-          name: junit-report
+          files: ${{ matrix.module }}/junit_report.xml
+          name: junit-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload test coverage results to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ matrix.module }}/coverage.txt
   release:
     #
     # Create a GitHub Release based on conventional commits.
