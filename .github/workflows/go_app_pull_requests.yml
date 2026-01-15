@@ -32,7 +32,7 @@ jobs:
       - name: Find Go modules
         id: set-modules
         run: |
-          MODS=$(find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | jq -R . | jq -s .)
+          MODS=$(find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | jq -R . | jq -sc .)
           echo "modules=$MODS" >> $GITHUB_OUTPUT
   commitlint:
     #
