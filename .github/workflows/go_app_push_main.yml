@@ -67,10 +67,10 @@ jobs:
           reporter: java-junit
       - uses: codecov/codecov-action@v5
         with:
-          report-type: test_results
           fail_ci_if_error: true # optional (default = false)
           files: ./junit_report.xml
           name: junit-report
+          report_type: test_results
           token: ${{ secrets.CODECOV_TOKEN }}
   release:
     #
