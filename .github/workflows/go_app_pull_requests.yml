@@ -26,6 +26,11 @@ on:
         description: "The duration before tests are stopped"
         type: string
         default: "10m"
+      DOCKER_CACHE_IMAGES:
+        description: "Comma-separated list of Docker images to pre-pull and cache for integration tests"
+        type: string
+        required: false
+        default: ""
     secrets:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
@@ -130,7 +135,22 @@ jobs:
       # Install go-junit-report to format test results.
       - name: Install go-junit-report
         run: go install github.com/jstemmer/go-junit-report/v2@v2.1.0
-      # Run unit test for evet Go module.
+      # Free up disk space before integration tests (removes ~25GB of unused tools)
+      - name: Free disk space
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+
+          # Remove unnecessary tools and SDKs (preserve Go and Docker)
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+          echo "Disk space after cleanup:"
+          df -h
+      # Run unit test for every Go module.
       - name: build coverage output directories
         run: |
           mkdir -p coverage/unit
@@ -156,8 +176,126 @@ jobs:
           files: ./junit_report.xml
           name: junit-report
           token: ${{ secrets.CODECOV_TOKEN }}
+      # Get the digest of the latest integrations-testsuite image
+      - name: Get integrations-testsuite image digest
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        id: image-digest
+        env:
+          ARTIFACT_REGISTRY: ${{ secrets.ARTIFACT_REGISTRY }}
+        run: |
+          IMAGE="${ARTIFACT_REGISTRY}/kochava/integrations-testsuite:latest"
+          # Get digest without pulling the full image (only manifest)
+          # Extract the actual image digest from the manifest
+          DIGEST=$(docker manifest inspect ${IMAGE} | jq -r '.manifests[0].digest // .config.digest' | sed 's/sha256://')
+          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+      # Cache Docker images for integration tests
+      - name: Cache integrations-testsuite Docker image
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.integrations-testsuite-cache
+          key: docker-integrations-testsuite-${{ runner.os }}-${{ steps.image-digest.outputs.digest }}
+          restore-keys: |
+            docker-integrations-testsuite-${{ runner.os }}-
+      # Pre-pull integrations-testsuite image before running tests
+      - name: Load or pull integrations-testsuite Docker image
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        env:
+          ARTIFACT_REGISTRY: ${{ secrets.ARTIFACT_REGISTRY }}
+        run: |
+          # Full image path with repository namespace
+          IMAGE="${ARTIFACT_REGISTRY}/kochava/integrations-testsuite:latest"
+
+          # Try to load from cache first
+          if [ -f /tmp/.integrations-testsuite-cache/image.tar ]; then
+            echo "Loading integrations-testsuite from cache..."
+            if docker load -i /tmp/.integrations-testsuite-cache/image.tar; then
+              echo "✓ Successfully loaded from cache"
+            else
+              echo "✗ Cache corrupted, pulling ${IMAGE}..."
+              docker pull ${IMAGE} || exit 1
+              mkdir -p /tmp/.integrations-testsuite-cache
+              docker save ${IMAGE} -o /tmp/.integrations-testsuite-cache/image.tar || echo "Warning: failed to cache image"
+            fi
+          else
+            echo "Cache miss, pulling ${IMAGE}..."
+            docker pull ${IMAGE} || exit 1
+
+            # Save for next time
+            mkdir -p /tmp/.integrations-testsuite-cache
+            docker save ${IMAGE} -o /tmp/.integrations-testsuite-cache/image.tar || echo "Warning: failed to cache image"
+          fi
+
+          # Verify image is available
+          if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
+            echo "Error: integrations-testsuite image not found after load/pull"
+            exit 1
+          fi
+          echo "✅ integrations-testsuite image verified"
+      # Get hash of Docker images list for cache key
+      - name: Hash Docker images list
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && inputs.DOCKER_CACHE_IMAGES != '' }}
+        id: images-hash
+        run: |
+          HASH=$(echo "${{ inputs.DOCKER_CACHE_IMAGES }}" | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "hash=${HASH}" >> $GITHUB_OUTPUT
+          # Calculate cache slot (invalidate every 20 runs)
+          CACHE_SLOT=$(( ${{ github.run_number }} - (${{ github.run_number }} % 20) ))
+          echo "cache-slot=${CACHE_SLOT}" >> $GITHUB_OUTPUT
+      # Cache custom Docker images (specified by caller)
+      - name: Cache custom Docker images
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && inputs.DOCKER_CACHE_IMAGES != '' }}
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.custom-docker-cache
+          key: docker-custom-images-${{ runner.os }}-${{ steps.images-hash.outputs.hash }}-${{ steps.images-hash.outputs.cache-slot }}-v1
+          restore-keys: |
+            docker-custom-images-${{ runner.os }}-${{ steps.images-hash.outputs.hash }}-
+      # Pre-pull custom Docker images before running tests
+      - name: Load or pull custom Docker images
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && inputs.DOCKER_CACHE_IMAGES != '' }}
+        env:
+          IMAGES_LIST: ${{ inputs.DOCKER_CACHE_IMAGES }}
+        run: |
+          echo "Processing custom Docker images: $IMAGES_LIST"
+
+          # Convert comma-separated string to array
+          IFS=',' read -ra IMAGES <<< "$IMAGES_LIST"
+
+          mkdir -p /tmp/.custom-docker-cache
+
+          for image in "${IMAGES[@]}"; do
+            # Trim whitespace
+            image=$(echo "$image" | xargs)
+
+            if [ -z "$image" ]; then
+              continue
+            fi
+
+            filename=$(echo "$image" | tr '/:' '_')
+
+            if [ -f "/tmp/.custom-docker-cache/${filename}.tar" ]; then
+              echo "Loading $image from cache..."
+              if docker load -i "/tmp/.custom-docker-cache/${filename}.tar"; then
+                echo "✓ Successfully loaded $image from cache"
+              else
+                echo "✗ Cache corrupted, pulling $image..."
+                docker pull "$image" || exit 1
+                docker save "$image" -o "/tmp/.custom-docker-cache/${filename}.tar" || echo "Warning: failed to cache $image"
+              fi
+            else
+              echo "Cache miss, pulling $image..."
+              docker pull "$image" || exit 1
+
+              # Save for next time
+              docker save "$image" -o "/tmp/.custom-docker-cache/${filename}.tar" || echo "Warning: failed to cache $image"
+            fi
+          done
+
+          echo "✅ Custom Docker images ready"
+          docker images
       # relies on the tests themselves compiling the binary with `-cover` and setting GOCOVERDIR to /coverage/int
-      # to seperate out any integration tests
+      # to separate out any integration tests
       - name: integration tests
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./...
@@ -230,10 +368,11 @@ jobs:
       # Setup Docker builder to do build.
       - name: Setup Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
+
       # Build the app.
       - name: Build
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           push: false
           provenance: false
@@ -241,3 +380,5 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64
           tags: ${{ steps.release.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
