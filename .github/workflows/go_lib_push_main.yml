@@ -176,6 +176,8 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ matrix.module }}/coverage.txt
+          verbose: true
+          fail_ci_if_error: true # optional (default = false)
   release:
     #
     # Create a GitHub Release based on conventional commits.

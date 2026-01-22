@@ -193,6 +193,14 @@ jobs:
           name: Integration Test Report (${{ matrix.module }})
           path: ${{ matrix.module }}/junit_integration_report.xml
           reporter: java-junit
+      - name: Upload integration test results to Codecov
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        uses: codecov/test-results-action@v1
+        with:
+          fail_ci_if_error: true # optional (default = false)
+          files: ${{ matrix.module }}/junit_integration_report.xml
+          name: junit-integration-report-${{ strategy.job-index }}
+          token: ${{ secrets.CODECOV_TOKEN }}
       # Coverage handling
       - name: build coverage.txt
         working-directory: ${{ matrix.module }}
@@ -207,6 +215,8 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ matrix.module }}/coverage.txt
+          verbose: true
+          fail_ci_if_error: true # optional (default = false)
   docker-build:
     #
     # ensures the docker image will build without pushing to the registry
