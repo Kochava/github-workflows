@@ -11,6 +11,26 @@ on:
         description: "GOPRIVATE env for go commands"
         required: false
         type: string
+      GOWORKSPACE:
+        description: "Go workspace mode"
+        required: false
+        type: string
+      GO_TEST_UNIT_TAGS:
+        description: "The tags flag for the unit test go test call. Include -tags flag. Example -tags=unit"
+        type: string
+        required: false
+        default: ""
+      GO_TEST_INTEGRATION_ENABLED:
+        type: boolean
+        default: false
+      GO_TEST_INTEGRATION_TAGS:
+        description: "The tags flag for the integration test go test call. Include -tags flag. Example -tags=integration"
+        type: string
+        default: "-tags=integration"
+      GO_TEST_INTEGRATION_TIMEOUT:
+        description: "The duration before tests are stopped"
+        type: string
+        default: "10m"
     secrets:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
@@ -18,6 +38,12 @@ on:
       CODECOV_TOKEN:
         description: 'Token for Codecov'
         required: true
+      ARTIFACT_REGISTRY:
+        description: 'Artifact Registry address to which to publish (leave blank to not publish)'
+        required: false
+      ARTIFACT_REGISTRY_JSON_KEY:
+        description: 'Key for publishing to Artifact Registry'
+        required: false
 env:
   GOPRIVATE: ${{ inputs.GOPRIVATE }}
 jobs:
@@ -53,6 +79,16 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "^1"
+      # Login to Artifact Registry if configured.
+      - name: Login to Artifact Registry
+        env:
+          ARTIFACT_REGISTRY_JSON_KEY: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
+        if: ${{ env.ARTIFACT_REGISTRY_JSON_KEY }}
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.ARTIFACT_REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
       # Use auth to get access to private Git repos for Go code dependencies.
       - name: Configure git for private modules
         env:
@@ -61,6 +97,9 @@ jobs:
         run:
           git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
           "https://github.com"
+      # Vendor Go code needed to build app.
+      - name: go mod vendor
+        run: go mod vendor || go work vendor
       # Go vet the module.
       - name: go vet
         working-directory: ${{ matrix.module }}
@@ -68,35 +107,84 @@ jobs:
       # Install go-junit-report to format test results.
       - name: Install go-junit-report
         run: go install github.com/jstemmer/go-junit-report/v2@v2.1.0
+      # Build coverage output directories.
+      - name: build coverage output directories
+        run: |
+          mkdir -p ${{ matrix.module }}/coverage/unit
+          mkdir -p ${{ matrix.module }}/coverage/int
       # Run unit tests for the module.
       - name: go test
         working-directory: ${{ matrix.module }}
-        run: go test -coverprofile=coverage.txt --race -v ./... 2>&1 | go-junit-report -set-exit-code > junit_report.xml || true
-      - name: Test Report
+        run: |
+          go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... \
+            -args -test.gocoverdir="${{ github.workspace }}/${{ matrix.module }}/coverage/unit" \
+            2>&1 | tee unit_test_output.txt
+      - name: Build Unit Test Junit report
+        working-directory: ${{ matrix.module }}
+        run: go-junit-report -in unit_test_output.txt -set-exit-code > junit_report.xml || true
+      - name: Unit Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
-          name: Test Report (${{ matrix.module }})
+          name: Unit Test Report (${{ matrix.module }})
           path: ${{ matrix.module }}/junit_report.xml
           reporter: java-junit
-      - uses: codecov/test-results-action@v1
+      - name: Upload unit test coverage results to Codecov
+        uses: codecov/test-results-action@v1
         with:
           fail_ci_if_error: true # optional (default = false)
           files: ${{ matrix.module }}/junit_report.xml
           name: junit-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
+      # Integration tests (conditional, per-module)
+      - name: integration tests
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        working-directory: ${{ matrix.module }}
+        run: |
+          go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./... \
+            | tee integration_test_output.txt
+      - name: Build Integration Test Junit report
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        working-directory: ${{ matrix.module }}
+        run: go-junit-report -in integration_test_output.txt -set-exit-code > junit_integration_report.xml || true
+      - name: Integration Test Report
+        uses: dorny/test-reporter@v1
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        with:
+          name: Integration Test Report (${{ matrix.module }})
+          path: ${{ matrix.module }}/junit_integration_report.xml
+          reporter: java-junit
+      - name: Upload integration test coverage results to Codecov
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        uses: codecov/test-results-action@v1
+        with:
+          fail_ci_if_error: true # optional (default = false)
+          files: ${{ matrix.module }}/junit_integration_report.xml
+          name: junit-integration-report-${{ strategy.job-index }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+      # Coverage handling
+      - name: build coverage.txt
+        working-directory: ${{ matrix.module }}
+        run: |
+          if [ -d coverage/int ] && [ "$(ls -A coverage/int)" ]; then
+            go tool covdata textfmt -i=./coverage/int,./coverage/unit -o coverage.txt
+          else
+            go tool covdata textfmt -i=./coverage/unit -o coverage.txt
+          fi
       - name: Upload test coverage results to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ matrix.module }}/coverage.txt
+          verbose: true
+          fail_ci_if_error: true # optional (default = false)
   release:
     #
     # Create a GitHub Release based on conventional commits.
     #
     name: 'Release to GitHub'
-    # needs: test
     runs-on: ubuntu-latest
+    needs: test
     steps:
       # Checkout code to release.
       - name: Checkout repo
