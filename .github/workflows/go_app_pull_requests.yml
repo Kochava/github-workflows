@@ -42,6 +42,20 @@ on:
 env:
   GOPRIVATE: ${{ inputs.GOPRIVATE }}
 jobs:
+  discover-modules:
+    #
+    # finds all go modules in the repository
+    #
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.set-modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find Go modules
+        id: set-modules
+        run: |
+          MODS=$(find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | jq -R . | jq -sc .)
+          echo "modules=$MODS" >> $GITHUB_OUTPUT
   commitlint:
     #
     # ensures commit messages follow conventional commits
@@ -82,7 +96,7 @@ jobs:
         run: git config --global url."https://${GITHUB_USERNAME}:${TOKEN}@github.com".insteadOf
           "https://github.com"
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
           args: --timeout=5m --enable=bodyclose
@@ -90,20 +104,21 @@ jobs:
     #
     # ensure go standards and tests pass
     #
+    needs: discover-modules
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # List of go versions to test on.
-        go: ['^1']
+        module: ${{ fromJson(needs.discover-modules.outputs.modules) }}
     steps:
       # Checkout go code to test.
       - name: Checkout repo
         uses: actions/checkout@v4
-      # Setup Go for each version in the matrix.
+      # Setup Go.
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version: "^1"
+      # Login to Artifact Registry if configured.
       - name: Login to Artifact Registry
         env:
           ARTIFACT_REGISTRY_JSON_KEY: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
@@ -113,6 +128,7 @@ jobs:
           registry: ${{ secrets.ARTIFACT_REGISTRY }}
           username: _json_key
           password: ${{ secrets.ARTIFACT_REGISTRY_JSON_KEY }}
+      # Use auth to get access to private Git repos for Go code dependencies.
       - name: Configure git for private modules
         env:
           TOKEN: ${{ secrets.GH_CI_PAT }}
@@ -123,65 +139,74 @@ jobs:
       # Vendor Go code needed to build app.
       - name: go mod vendor
         run: go mod vendor
-      # Go vet every Go module.
+      # Go vet the module.
       - name: go vet
-        run:
-          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go vet ./..."
+        working-directory: ${{ matrix.module }}
+        run: go vet ./...
       # Install go-junit-report to format test results.
       - name: Install go-junit-report
         run: go install github.com/jstemmer/go-junit-report/v2@v2.1.0
-      # Run unit test for evet Go module.
+      # Build coverage output directories.
       - name: build coverage output directories
         run: |
-          mkdir -p coverage/unit
-          mkdir -p coverage/int
+          mkdir -p ${{ matrix.module }}/coverage/unit
+          mkdir -p ${{ matrix.module }}/coverage/int
+      # Run unit tests for the module.
       - name: go test
-        run:
-          find . -name vendor -prune -o -name go.mod -print | xargs -n1 dirname | xargs -n1 -I{} bash -c "pushd {}; go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... -args -test.gocoverdir=\"${{ github.workspace }}/coverage/unit\""
-          | tee unit_test_output.txt
+        working-directory: ${{ matrix.module }}
+        run: |
+          go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... \
+            -args -test.gocoverdir="${{ github.workspace }}/${{ matrix.module }}/coverage/unit" \
+            2>&1 | tee unit_test_output.txt
       - name: Build Unit Test Junit report
-        run:
-          go-junit-report -in unit_test_output.txt -set-exit-code > junit_report.xml || true
+        working-directory: ${{ matrix.module }}
+        run: go-junit-report -in unit_test_output.txt -set-exit-code > junit_report.xml || true
       - name: Unit Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
-          name: Unit Test Report
-          path: junit_report.xml
+          name: Unit Test Report (${{ matrix.module }})
+          path: ${{ matrix.module }}/junit_report.xml
           reporter: java-junit
       - name: Upload unit test coverage results to Codecov
         uses: codecov/test-results-action@v1
         with:
           fail_ci_if_error: true # optional (default = false)
-          files: ./junit_report.xml
-          name: junit-report
+          files: ${{ matrix.module }}/junit_report.xml
+          name: junit-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
-      # relies on the tests themselves compiling the binary with `-cover` and setting GOCOVERDIR to /coverage/int
-      # to seperate out any integration tests
+      # Integration tests (conditional, per-module)
       - name: integration tests
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
-        run: go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./...
-              | tee integration_test_output.txt
+        working-directory: ${{ matrix.module }}
+        run: |
+          go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./... \
+            | tee integration_test_output.txt
       - name: Build Integration Test Junit report
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        working-directory: ${{ matrix.module }}
         run: go-junit-report -in integration_test_output.txt -set-exit-code > junit_integration_report.xml || true
       - name: Integration Test Report
         uses: dorny/test-reporter@v1
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         with:
-          name: Integration Test Report
-          path: junit_integration_report.xml
+          name: Integration Test Report (${{ matrix.module }})
+          path: ${{ matrix.module }}/junit_integration_report.xml
           reporter: java-junit
-      - name: show coverage output directories
-        run: |
-          ls ./coverage/unit
-          ls ./coverage/int
+      # Coverage handling
       - name: build coverage.txt
-        run: go tool covdata textfmt -i=./coverage/int,./coverage/unit -o coverage.txt
+        working-directory: ${{ matrix.module }}
+        run: |
+          if [ -d coverage/int ] && [ "$(ls -A coverage/int)" ]; then
+            go tool covdata textfmt -i=./coverage/int,./coverage/unit -o coverage.txt
+          else
+            go tool covdata textfmt -i=./coverage/unit -o coverage.txt
+          fi
       - name: Upload test coverage results to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ matrix.module }}/coverage.txt
   docker-build:
     #
     # ensures the docker image will build without pushing to the registry
