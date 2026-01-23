@@ -217,9 +217,10 @@ jobs:
             go tool covdata textfmt -i=./coverage/unit -o coverage.txt
           fi
       - name: Upload test coverage results to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
           files: ${{ matrix.module }}/coverage.txt
           verbose: true
           fail_ci_if_error: true # optional (default = false)
