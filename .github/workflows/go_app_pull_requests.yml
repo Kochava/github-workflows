@@ -214,7 +214,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          report-type: test_results
+          report_type: test_results
           files: ${{ matrix.module }}/coverage.txt
           verbose: true
           fail_ci_if_error: true # optional (default = false)
