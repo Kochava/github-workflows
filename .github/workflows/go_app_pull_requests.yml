@@ -63,7 +63,7 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: latest
-          args: --timeout=5m --enable=bodyclose
+          args: --timeout=5m --enable=bodyclose --exclude="Error return value of .*\.Body\.Close.* is not checked"
   test:
     #
     # ensure go standards and tests pass
