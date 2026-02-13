@@ -207,10 +207,27 @@ jobs:
       - name: build coverage.txt
         working-directory: ${{ matrix.module }}
         run: |
-          if [ -d coverage/int ] && [ "$(ls -A coverage/int)" ]; then
-            go tool covdata textfmt -i=./coverage/int,./coverage/unit -o coverage.txt
-          else
+          HAS_UNIT=false
+          HAS_INT=false
+          if [ -d coverage/unit ] && [ "$(ls -A coverage/unit 2>/dev/null)" ]; then
+            HAS_UNIT=true
+          fi
+          if [ -d coverage/int ] && [ "$(ls -A coverage/int 2>/dev/null)" ]; then
+            HAS_INT=true
+          fi
+
+          if [ "$HAS_UNIT" = true ] && [ "$HAS_INT" = true ]; then
+            echo "Combining unit and integration coverage"
+            go tool covdata textfmt -i=./coverage/unit,./coverage/int -o coverage.txt
+          elif [ "$HAS_UNIT" = true ]; then
+            echo "Using unit coverage only"
             go tool covdata textfmt -i=./coverage/unit -o coverage.txt
+          elif [ "$HAS_INT" = true ]; then
+            echo "Using integration coverage only"
+            go tool covdata textfmt -i=./coverage/int -o coverage.txt
+          else
+            echo "No coverage data found"
+            echo "mode: set" > coverage.txt
           fi
       - name: Upload test coverage results to Codecov
         uses: codecov/codecov-action@v4
