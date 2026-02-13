@@ -176,14 +176,16 @@ jobs:
           name: junit-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
       # Integration tests (conditional, per-module)
-      # INTEGRATION_COVERAGE=true enables runtime coverage collection for services
-      # that run in Docker containers (e.g., testcontainers-based tests)
+      # Coverage is collected from two sources:
+      # 1. Go integration tests running in-process (via -cover and -test.gocoverdir)
+      # 2. Services running in Docker containers (via INTEGRATION_COVERAGE=true env var)
       - name: integration tests
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         working-directory: ${{ matrix.module }}
         run: |
-          INTEGRATION_COVERAGE=true go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./... \
-            | tee integration_test_output.txt
+          INTEGRATION_COVERAGE=true go test -cover -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./... \
+            -args -test.gocoverdir="${{ github.workspace }}/${{ matrix.module }}/coverage/int" \
+            2>&1 | tee integration_test_output.txt
       - name: Build Integration Test Junit report
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         working-directory: ${{ matrix.module }}
