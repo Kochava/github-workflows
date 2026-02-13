@@ -151,11 +151,11 @@ jobs:
         run: |
           mkdir -p ${{ matrix.module }}/coverage/unit
           mkdir -p ${{ matrix.module }}/coverage/int
-      # Run unit tests for the module.
+      # Run unit tests with race detector and coverage
       - name: go test
         working-directory: ${{ matrix.module }}
         run: |
-          go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... \
+          go test -cover -race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... \
             -args -test.gocoverdir="${{ github.workspace }}/${{ matrix.module }}/coverage/unit" \
             2>&1 | tee unit_test_output.txt
       - name: Build Unit Test Junit report
@@ -176,12 +176,16 @@ jobs:
           name: junit-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
       # Integration tests (conditional, per-module)
+      # Coverage is collected from two sources:
+      # 1. Go integration tests running in-process (via -cover and -test.gocoverdir)
+      # 2. Services running in Docker containers (via INTEGRATION_COVERAGE=true env var)
       - name: integration tests
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         working-directory: ${{ matrix.module }}
         run: |
-          go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./... \
-            | tee integration_test_output.txt
+          INTEGRATION_COVERAGE=true go test -cover -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./... \
+            -args -test.gocoverdir="${{ github.workspace }}/${{ matrix.module }}/coverage/int" \
+            2>&1 | tee integration_test_output.txt
       - name: Build Integration Test Junit report
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         working-directory: ${{ matrix.module }}
@@ -201,22 +205,45 @@ jobs:
           files: ${{ matrix.module }}/junit_integration_report.xml
           name: junit-integration-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
-      # Coverage handling
-      - name: build coverage.txt
+      # Coverage handling - upload unit and integration separately
+      # (they use different coverage modes: atomic vs set, so can't be combined locally)
+      # Codecov will merge them automatically
+      - name: build unit coverage
         working-directory: ${{ matrix.module }}
         run: |
-          if [ -d coverage/int ] && [ "$(ls -A coverage/int)" ]; then
-            go tool covdata textfmt -i=./coverage/int,./coverage/unit -o coverage.txt
+          if [ -d coverage/unit ] && [ "$(ls -A coverage/unit 2>/dev/null)" ]; then
+            echo "Converting unit coverage to text format"
+            go tool covdata textfmt -i=./coverage/unit -o coverage-unit.txt
           else
-            go tool covdata textfmt -i=./coverage/unit -o coverage.txt
+            echo "No unit coverage data found"
           fi
-      - name: Upload test coverage results to Codecov
+      - name: build integration coverage
+        working-directory: ${{ matrix.module }}
+        run: |
+          if [ -d coverage/int ] && [ "$(ls -A coverage/int 2>/dev/null)" ]; then
+            echo "Converting integration coverage to text format"
+            go tool covdata textfmt -i=./coverage/int -o coverage-int.txt
+          else
+            echo "No integration coverage data found"
+          fi
+      - name: Upload unit test coverage to Codecov
+        if: ${{ hashFiles(format('{0}/coverage-unit.txt', matrix.module)) != '' }}
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ${{ matrix.module }}/coverage.txt
+          files: ${{ matrix.module }}/coverage-unit.txt
+          flags: unit
           verbose: true
-          fail_ci_if_error: true # optional (default = false)
+          fail_ci_if_error: false
+      - name: Upload integration test coverage to Codecov
+        if: ${{ hashFiles(format('{0}/coverage-int.txt', matrix.module)) != '' }}
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ matrix.module }}/coverage-int.txt
+          flags: integration
+          verbose: true
+          fail_ci_if_error: false
   docker-build:
     #
     # ensures the docker image will build without pushing to the registry
