@@ -82,12 +82,12 @@ jobs:
     steps:
       # Checkout code to build.
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       # Setup Go.
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '^1'
+          go-version: 'stable'
       # Use auth to get access to private Git repos for Go code dependencies.
       - name: Configure git for private modules
         env:
@@ -112,12 +112,12 @@ jobs:
     steps:
       # Checkout go code to test.
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       # Setup Go.
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: "^1"
+          go-version: 'stable'
       # Login to Artifact Registry if configured.
       - name: Login to Artifact Registry
         env:
@@ -229,12 +229,12 @@ jobs:
     steps:
       # Checkout code to build.
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       # Setup Go.
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '^1'
+          go-version: 'stable'
       # Use auth to get access to private Git repos for Go code dependencies.
       - name: Configure git for private modules
         env:
