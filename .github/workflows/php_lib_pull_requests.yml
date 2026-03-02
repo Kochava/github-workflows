@@ -27,7 +27,7 @@ on:
       SETUP_PHP_TOOLS:
         description: 'The tools to enable while setting up PHP (csv)'
         required: false
-        default: "composer:v1"
+        default: "composer:v2"
         type: string
       SETUP_PHP_COVERAGE:
         description: 'The coverage tool to enable while setting up PHP (csv)'
