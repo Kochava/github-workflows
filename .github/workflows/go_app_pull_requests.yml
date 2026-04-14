@@ -80,9 +80,11 @@ jobs:
     #
     runs-on: ubuntu-latest
     steps:
-      # Checkout code to build.
+      # Checkout code to build (fetch-depth: 0 needed for only-new-issues diff).
       - name: Checkout repo
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       # Setup Go.
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -98,7 +100,8 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: v2.1.6
+          only-new-issues: true
           args: --timeout=5m --enable=bodyclose
   test:
     #
