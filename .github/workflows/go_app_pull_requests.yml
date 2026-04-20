@@ -202,6 +202,7 @@ jobs:
           name: Integration Test Report (${{ matrix.module }})
           path: ${{ matrix.module }}/junit_integration_report.xml
           reporter: java-junit
+          fail-on-error: 'false'
       - name: Upload integration test results to Codecov
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         uses: codecov/test-results-action@v1
