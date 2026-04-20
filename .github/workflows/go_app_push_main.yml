@@ -147,7 +147,9 @@ jobs:
       - name: Build Integration Test Junit report
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         working-directory: ${{ matrix.module }}
-        run: go-junit-report -in integration_test_output.txt -set-exit-code > junit_integration_report.xml || true
+        run: |
+          grep -E '^(=== |--- |\s*(PASS|FAIL|ok\s|coverage:|SKIP|\?)\s)' integration_test_output.txt > integration_test_go_only.txt || true
+          go-junit-report -in integration_test_go_only.txt -set-exit-code > junit_integration_report.xml || true
       - name: Integration Test Report
         uses: dorny/test-reporter@v1
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
