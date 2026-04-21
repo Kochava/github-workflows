@@ -112,6 +112,7 @@ jobs:
         run: |
           mkdir -p ${{ matrix.module }}/coverage/unit
           mkdir -p ${{ matrix.module }}/coverage/int
+          mkdir -p ${{ matrix.module }}/coverage/e2e
       # Run unit tests for the module.
       - name: go test
         working-directory: ${{ matrix.module }}
@@ -198,6 +199,25 @@ jobs:
           files: ${{ matrix.module }}/coverage.txt
           verbose: true
           fail_ci_if_error: true # optional (default = false)
+      - name: build e2e coverage
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        working-directory: ${{ matrix.module }}
+        run: |
+          if [ -d coverage/e2e ] && [ "$(ls -A coverage/e2e 2>/dev/null)" ]; then
+            echo "Converting e2e coverage to text format"
+            go tool covdata textfmt -i=./coverage/e2e -o coverage-e2e.txt
+          else
+            echo "No e2e coverage data found"
+          fi
+      - name: Upload e2e test coverage to Codecov
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && hashFiles(format('{0}/coverage-e2e.txt', matrix.module)) != '' }}
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ matrix.module }}/coverage-e2e.txt
+          flags: e2e
+          verbose: true
+          fail_ci_if_error: false
   release:
     #
     # Create a GitHub Release based on conventional commits.
