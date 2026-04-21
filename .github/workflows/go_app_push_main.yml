@@ -74,12 +74,12 @@ jobs:
     steps:
       # Checkout go code to test.
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       # Setup Go.
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: "^1"
+          go-version: 'stable'
       # Login to Artifact Registry if configured.
       - name: Login to Artifact Registry
         env:
@@ -131,9 +131,10 @@ jobs:
           path: ${{ matrix.module }}/junit_report.xml
           reporter: java-junit
       - name: Upload unit test results to Codecov
-        uses: codecov/test-results-action@v1
+        uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true # optional (default = false)
+          report_type: test_results
           files: ${{ matrix.module }}/junit_report.xml
           name: junit-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -161,9 +162,10 @@ jobs:
           reporter: java-junit
       - name: Upload integration test results to Codecov
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
-        uses: codecov/test-results-action@v1
+        uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true # optional (default = false)
+          report_type: test_results
           files: ${{ matrix.module }}/junit_integration_report.xml
           name: junit-integration-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}

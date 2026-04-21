@@ -85,14 +85,16 @@ jobs:
     #
     runs-on: ubuntu-latest
     steps:
-      # Checkout code to build.
+      # Checkout code to build (fetch-depth: 0 needed for only-new-issues diff).
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       # Setup Go.
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '^1'
+          go-version: 'stable'
       # Use auth to get access to private Git repos for Go code dependencies.
       - name: Configure git for private modules
         env:
@@ -104,7 +106,8 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: latest
-          args: --timeout=5m --enable=bodyclose
+          only-new-issues: true
+          args: --timeout=10m --enable=bodyclose
   test:
     #
     # ensure go standards and tests pass
@@ -117,12 +120,12 @@ jobs:
     steps:
       # Checkout go code to test.
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       # Setup Go.
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: "^1"
+          go-version: 'stable'
       # Login to Artifact Registry if configured.
       - name: Login to Artifact Registry
         env:
@@ -175,9 +178,10 @@ jobs:
           path: ${{ matrix.module }}/junit_report.xml
           reporter: java-junit
       - name: Upload unit test coverage results to Codecov
-        uses: codecov/test-results-action@v1
+        uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true # optional (default = false)
+          report_type: test_results
           files: ${{ matrix.module }}/junit_report.xml
           name: junit-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -208,9 +212,10 @@ jobs:
           fail-on-error: 'false'
       - name: Upload integration test results to Codecov
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
-        uses: codecov/test-results-action@v1
+        uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true # optional (default = false)
+          report_type: test_results
           files: ${{ matrix.module }}/junit_integration_report.xml
           name: junit-integration-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -224,49 +229,28 @@ jobs:
           reporter: java-junit
       - name: Upload extra test results to Codecov
         if: ${{ (success() || failure()) && inputs.EXTRA_JUNIT_REPORT != '' && inputs.GO_TEST_INTEGRATION_ENABLED }}
-        uses: codecov/test-results-action@v1
+        uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: false
+          report_type: test_results
           files: ${{ matrix.module }}/${{ inputs.EXTRA_JUNIT_REPORT }}
           name: junit-extra-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
-      # Coverage handling - upload unit and integration separately
-      # (they use different coverage modes: atomic vs set, so can't be combined locally)
-      # Codecov will merge them automatically
-      - name: build unit coverage
+      # Coverage handling
+      - name: build coverage.txt
         working-directory: ${{ matrix.module }}
         run: |
-          if [ -d coverage/unit ] && [ "$(ls -A coverage/unit 2>/dev/null)" ]; then
-            echo "Converting unit coverage to text format"
-            go tool covdata textfmt -i=./coverage/unit -o coverage-unit.txt
+          if [ -d coverage/int ] && [ "$(ls -A coverage/int)" ]; then
+            go tool covdata textfmt -i=./coverage/int,./coverage/unit -o coverage.txt
           else
-            echo "No unit coverage data found"
+            go tool covdata textfmt -i=./coverage/unit -o coverage.txt
           fi
-      - name: build integration coverage
-        working-directory: ${{ matrix.module }}
-        run: |
-          if [ -d coverage/int ] && [ "$(ls -A coverage/int 2>/dev/null)" ]; then
-            echo "Converting integration coverage to text format"
-            go tool covdata textfmt -i=./coverage/int -o coverage-int.txt
-          else
-            echo "No integration coverage data found"
-          fi
-      - name: Upload unit test coverage to Codecov
-        if: ${{ hashFiles(format('{0}/coverage-unit.txt', matrix.module)) != '' }}
-        uses: codecov/codecov-action@v4
+      - name: Upload test coverage results to Codecov
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ${{ matrix.module }}/coverage-unit.txt
-          flags: unit
-          verbose: true
-          fail_ci_if_error: false
-      - name: Upload integration test coverage to Codecov
-        if: ${{ hashFiles(format('{0}/coverage-int.txt', matrix.module)) != '' }}
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ${{ matrix.module }}/coverage-int.txt
-          flags: integration
+          report_type: coverage
+          files: ${{ matrix.module }}/coverage.txt
           verbose: true
           fail_ci_if_error: false
       - name: build e2e coverage
@@ -281,9 +265,10 @@ jobs:
           fi
       - name: Upload e2e test coverage to Codecov
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && hashFiles(format('{0}/coverage-e2e.txt', matrix.module)) != '' }}
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: coverage
           files: ${{ matrix.module }}/coverage-e2e.txt
           flags: e2e
           verbose: true
@@ -297,12 +282,12 @@ jobs:
     steps:
       # Checkout code to build.
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       # Setup Go.
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '^1'
+          go-version: 'stable'
       # Use auth to get access to private Git repos for Go code dependencies.
       - name: Configure git for private modules
         env:
