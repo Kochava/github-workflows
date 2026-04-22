@@ -148,7 +148,7 @@ jobs:
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         working-directory: ${{ matrix.module }}
         run: |
-          INTEGRATION_COVERAGE=true go test -cover -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./... \
+          INTEGRATION_COVERAGE=true go test -cover -covermode=atomic -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./... \
             -args -test.gocoverdir="${{ github.workspace }}/${{ matrix.module }}/coverage/int" \
             > >(tee integration_test_output.txt) 2> >(tee integration_test_stderr.txt >&2)
       - name: Build Integration Test Junit report
