@@ -170,15 +170,20 @@ jobs:
           name: junit-integration-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
       # Extra JUnit report (e.g., from Python integration tests running inside Docker)
-      - name: Extra Test Report
+      - name: Check extra JUnit report exists
+        id: check_extra_report
         if: ${{ (success() || failure()) && inputs.EXTRA_JUNIT_REPORT != '' && inputs.GO_TEST_INTEGRATION_ENABLED }}
+        run: test -f "${{ matrix.module }}/${{ inputs.EXTRA_JUNIT_REPORT }}"
+        continue-on-error: true
+      - name: Extra Test Report
+        if: ${{ steps.check_extra_report.outcome == 'success' }}
         uses: dorny/test-reporter@v1
         with:
           name: Extra Test Report (${{ matrix.module }})
           path: ${{ matrix.module }}/${{ inputs.EXTRA_JUNIT_REPORT }}
           reporter: java-junit
       - name: Upload extra test results to Codecov
-        if: ${{ (success() || failure()) && inputs.EXTRA_JUNIT_REPORT != '' && inputs.GO_TEST_INTEGRATION_ENABLED }}
+        if: ${{ steps.check_extra_report.outcome == 'success' }}
         uses: codecov/test-results-action@v1
         with:
           fail_ci_if_error: false
