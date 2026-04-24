@@ -26,6 +26,11 @@ on:
         description: "The duration before tests are stopped"
         type: string
         default: "10m"
+      EXTRA_JUNIT_REPORT:
+        description: "Path to an additional JUnit XML report (e.g., from Python integration tests). Relative to the module directory."
+        type: string
+        required: false
+        default: ""
     secrets:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
@@ -154,11 +159,12 @@ jobs:
         run: |
           mkdir -p ${{ matrix.module }}/coverage/unit
           mkdir -p ${{ matrix.module }}/coverage/int
-      # Run unit tests for the module.
+          mkdir -p ${{ matrix.module }}/coverage/e2e
+      # Run unit tests with race detector and coverage
       - name: go test
         working-directory: ${{ matrix.module }}
         run: |
-          go test -cover --race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... \
+          go test -cover -race -v ${{ inputs.GO_TEST_UNIT_TAGS }} ./... \
             -args -test.gocoverdir="${{ github.workspace }}/${{ matrix.module }}/coverage/unit" \
             2>&1 | tee unit_test_output.txt
       - name: Build Unit Test Junit report
@@ -180,31 +186,62 @@ jobs:
           name: junit-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
       # Integration tests (conditional, per-module)
+      # Coverage is collected from two sources:
+      # 1. Go integration tests running in-process (via -cover and -test.gocoverdir)
+      # 2. Services running in Docker containers (via INTEGRATION_COVERAGE=true env var)
       - name: integration tests
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
         working-directory: ${{ matrix.module }}
+        shell: bash
         run: |
-          go test -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./... \
-            | tee integration_test_output.txt
+          set -o pipefail
+          INTEGRATION_COVERAGE=true go test -cover -covermode=atomic -v ${{ inputs.GO_TEST_INTEGRATION_TAGS }} -timeout ${{ inputs.GO_TEST_INTEGRATION_TIMEOUT }} ./... \
+            -args -test.gocoverdir="${{ github.workspace }}/${{ matrix.module }}/coverage/int" \
+            > >(tee integration_test_output.txt) 2> >(tee integration_test_stderr.txt >&2)
       - name: Build Integration Test Junit report
-        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        if: ${{ (success() || failure()) && inputs.GO_TEST_INTEGRATION_ENABLED }}
         working-directory: ${{ matrix.module }}
-        run: go-junit-report -in integration_test_output.txt -set-exit-code > junit_integration_report.xml || true
+        run: |
+          grep -E '^(\s*=== |\s*--- |\s*(PASS|FAIL|ok\s|coverage:|SKIP|\?)\s)' integration_test_output.txt > integration_test_go_only.txt || true
+          go-junit-report -in integration_test_go_only.txt -set-exit-code > junit_integration_report.xml
       - name: Integration Test Report
         uses: dorny/test-reporter@v1
-        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        if: ${{ (success() || failure()) && inputs.GO_TEST_INTEGRATION_ENABLED }}
         with:
           name: Integration Test Report (${{ matrix.module }})
           path: ${{ matrix.module }}/junit_integration_report.xml
           reporter: java-junit
+          fail-on-error: 'false'
       - name: Upload integration test results to Codecov
-        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        if: ${{ (success() || failure()) && inputs.GO_TEST_INTEGRATION_ENABLED }}
         uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true # optional (default = false)
           report_type: test_results
           files: ${{ matrix.module }}/junit_integration_report.xml
           name: junit-integration-report-${{ strategy.job-index }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+      # Extra JUnit report (e.g., from Python integration tests running inside Docker)
+      - name: Check extra JUnit report exists
+        id: check_extra_report
+        if: ${{ (success() || failure()) && inputs.EXTRA_JUNIT_REPORT != '' && inputs.GO_TEST_INTEGRATION_ENABLED }}
+        run: test -f "${{ matrix.module }}/${{ inputs.EXTRA_JUNIT_REPORT }}"
+        continue-on-error: true
+      - name: Extra Test Report
+        if: ${{ steps.check_extra_report.outcome == 'success' }}
+        uses: dorny/test-reporter@v1
+        with:
+          name: Extra Test Report (${{ matrix.module }})
+          path: ${{ matrix.module }}/${{ inputs.EXTRA_JUNIT_REPORT }}
+          reporter: java-junit
+      - name: Upload extra test results to Codecov
+        if: ${{ steps.check_extra_report.outcome == 'success' }}
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: false
+          report_type: test_results
+          files: ${{ matrix.module }}/${{ inputs.EXTRA_JUNIT_REPORT }}
+          name: junit-extra-report-${{ strategy.job-index }}
           token: ${{ secrets.CODECOV_TOKEN }}
       # Coverage handling
       - name: build coverage.txt
@@ -222,7 +259,27 @@ jobs:
           report_type: coverage
           files: ${{ matrix.module }}/coverage.txt
           verbose: true
-          fail_ci_if_error: true # optional (default = false)
+          fail_ci_if_error: false
+      - name: build e2e coverage
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
+        working-directory: ${{ matrix.module }}
+        run: |
+          if [ -d coverage/e2e ] && [ "$(ls -A coverage/e2e 2>/dev/null)" ]; then
+            echo "Converting e2e coverage to text format"
+            go tool covdata textfmt -i=./coverage/e2e -o coverage-e2e.txt
+          else
+            echo "No e2e coverage data found"
+          fi
+      - name: Upload e2e test coverage to Codecov
+        if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && hashFiles(format('{0}/coverage-e2e.txt', matrix.module)) != '' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: coverage
+          files: ${{ matrix.module }}/coverage-e2e.txt
+          flags: e2e
+          verbose: true
+          fail_ci_if_error: false
   docker-build:
     #
     # ensures the docker image will build without pushing to the registry
