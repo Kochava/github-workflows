@@ -202,7 +202,7 @@ jobs:
         if: ${{ (success() || failure()) && inputs.GO_TEST_INTEGRATION_ENABLED }}
         working-directory: ${{ matrix.module }}
         run: |
-          grep -E '^(=== |--- |\s*(PASS|FAIL|ok\s|coverage:|SKIP|\?)\s)' integration_test_output.txt > integration_test_go_only.txt || true
+          grep -E '^(\s*=== |\s*--- |\s*(PASS|FAIL|ok\s|coverage:|SKIP|\?)\s)' integration_test_output.txt > integration_test_go_only.txt || true
           go-junit-report -in integration_test_go_only.txt -set-exit-code > junit_integration_report.xml
       - name: Integration Test Report
         uses: dorny/test-reporter@v1
