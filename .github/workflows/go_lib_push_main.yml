@@ -233,6 +233,18 @@ jobs:
           flags: e2e
           verbose: true
           fail_ci_if_error: false
+      - name: Create Codecov commit
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          run_command: create-commit
+      - name: Send Codecov notifications
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          run_command: send-notifications
   release:
     #
     # Create a GitHub Release based on conventional commits.
