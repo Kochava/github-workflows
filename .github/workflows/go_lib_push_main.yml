@@ -136,7 +136,7 @@ jobs:
           path: ${{ matrix.module }}/junit_report.xml
           reporter: java-junit
       - name: Upload unit test coverage results to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true # optional (default = false)
           report_type: test_results
@@ -167,7 +167,7 @@ jobs:
           fail-on-error: 'false'
       - name: Upload integration test coverage results to Codecov
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true # optional (default = false)
           report_type: test_results
@@ -189,7 +189,7 @@ jobs:
           reporter: java-junit
       - name: Upload extra test results to Codecov
         if: ${{ steps.check_extra_report.outcome == 'success' }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: false
           report_type: test_results
@@ -206,7 +206,7 @@ jobs:
             go tool covdata textfmt -i=./coverage/unit -o coverage.txt
           fi
       - name: Upload test coverage results to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: coverage
@@ -225,7 +225,7 @@ jobs:
           fi
       - name: Upload e2e test coverage to Codecov
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED && hashFiles(format('{0}/coverage-e2e.txt', matrix.module)) != '' }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: coverage
@@ -233,18 +233,6 @@ jobs:
           flags: e2e
           verbose: true
           fail_ci_if_error: false
-      - name: Create Codecov commit
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          run_command: create-commit
-      - name: Send Codecov notifications
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          run_command: send-notifications
   release:
     #
     # Create a GitHub Release based on conventional commits.
