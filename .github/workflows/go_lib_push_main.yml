@@ -130,7 +130,7 @@ jobs:
           path: ${{ matrix.module }}/junit_report.xml
           reporter: java-junit
       - name: Upload unit test coverage results to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true # optional (default = false)
           report_type: test_results
@@ -157,7 +157,7 @@ jobs:
           reporter: java-junit
       - name: Upload integration test coverage results to Codecov
         if: ${{ inputs.GO_TEST_INTEGRATION_ENABLED }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true # optional (default = false)
           report_type: test_results
@@ -174,7 +174,7 @@ jobs:
             go tool covdata textfmt -i=./coverage/unit -o coverage.txt
           fi
       - name: Upload test coverage results to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: coverage
