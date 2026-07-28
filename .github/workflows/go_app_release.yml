@@ -11,6 +11,11 @@ on:
         description: 'GOPRIVATE env for go commands'
         required: false
         type: string
+      LEGACY_DOCKER_MEDIATYPES:
+        description: 'Push Docker schema2 manifest lists instead of OCI image indexes (required for legacy Mesos/Marathon Docker 17.x hosts)'
+        required: false
+        type: boolean
+        default: false
     secrets:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
@@ -98,7 +103,7 @@ jobs:
       - name: Build and Push to Artifact Registry
         uses: docker/build-push-action@v3
         with:
-          outputs: type=registry,oci-mediatypes=false
+          outputs: type=registry,oci-mediatypes=${{ inputs.LEGACY_DOCKER_MEDIATYPES && 'false' || 'true' }}
           provenance: false
           context: .
           file: Dockerfile
