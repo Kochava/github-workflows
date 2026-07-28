@@ -98,7 +98,7 @@ jobs:
       - name: Build and Push to Artifact Registry
         uses: docker/build-push-action@v3
         with:
-          push: true
+          outputs: type=registry,oci-mediatypes=false
           provenance: false
           context: .
           file: Dockerfile
