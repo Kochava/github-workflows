@@ -27,6 +27,10 @@ on:
         description: "The duration before tests are stopped"
         type: string
         default: "10m"
+      COVERAGE_ARTIFACT_ENABLED:
+        description: "Publish the Go coverage profile as an artifact named go-coverage so the caller can upload it to GitHub code coverage"
+        type: boolean
+        default: false
     secrets:
       GH_CI_PAT:
         description: 'Token password for GitHub auth'
@@ -175,6 +179,13 @@ jobs:
           files: ${{ matrix.module }}/coverage.txt
           verbose: true
           fail_ci_if_error: true # optional (default = false)
+      - name: Upload coverage profile artifact
+        if: ${{ inputs.COVERAGE_ARTIFACT_ENABLED }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: ${{ matrix.module }}/coverage.txt
+          if-no-files-found: error
   release:
     #
     # Create a GitHub Release based on conventional commits.
