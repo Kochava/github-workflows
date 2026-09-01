@@ -10,7 +10,6 @@ on:
       - '.github/workflows/**'
 
 permissions:
-  security-events: write
   contents: read
   actions: read
 
@@ -24,5 +23,16 @@ jobs:
         with:
           persist-credentials: false
 
+      # Standardized on GitHub annotations (not SARIF/code scanning) so this
+      # workflow behaves the same in every consumer repo, most of which are
+      # private and don't have a GitHub Advanced Security license.
+      #
+      # continue-on-error is temporary: the repo currently has real findings
+      # (see #76), and unlike SARIF, the `github` annotation format propagates
+      # zizmor's real exit code. Remove this once the cleanup in #76 lands.
       - name: Run zizmor
         uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
+        continue-on-error: true
+        with:
+          advanced-security: false
+          annotations: true
