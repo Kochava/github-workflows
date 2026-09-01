@@ -12,6 +12,20 @@ This repo contains GitHub Action Workflow Templates for Kochava's various workfl
 | Gradle Library   | gradle_app     | gradle/app/{version} | Used for Gradle Java/Kotlin application projects intended to be deployed as a Jar file. Tests/Lints on PRs, Creates a Release based on conventional commits when merged to main.                                                         |
 | Ruby on Rails App   | rails_app     | rails/app/{version} | Used for Ruby on Rails application projects intended to be deployed as a Docker image. Tests on PRs, Creates a Release based on conventional commits when merged to main.                                                         |
 
+## Security Scanning
+
+`zizmor_scan.yml` is a reusable workflow that runs [zizmor](https://docs.zizmor.sh/) — static analysis for GitHub Actions — against a caller repo's own workflows. Unlike the workflow types above, it isn't tied to a language stack, so it uses its own tag prefix (`zizmor/{version}`) rather than `go/app`, `php/lib`, etc.
+
+Add it to any repo by referencing it as a job in your own workflow:
+
+```yaml
+jobs:
+  zizmor:
+    uses: Kochava/github-workflows/.github/workflows/zizmor_scan.yml@zizmor/v1
+```
+
+By default it's audit-only: it never fails your build, it just leaves inline annotations on the offending lines and posts (or updates) a single PR summary comment with a rule/severity breakdown. Pass `fail-on-findings: true` once you're ready to enforce it. It reports via GitHub annotations rather than SARIF/code scanning, since most repos in this org are private and don't have a GitHub Advanced Security license. See the workflow file for the full set of inputs.
+
 ## Versioning
 
 In order to protect workflow users from having their workflows break, we must carefully consider versioning. Tags should be prefixed by a workflow type. 
