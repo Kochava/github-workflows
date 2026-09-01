@@ -9,14 +9,19 @@ on:
     paths:
       - '.github/workflows/**'
 
-permissions:
-  contents: read
-  actions: read
+permissions: {}   # each job below grants only what it needs
+
+concurrency:
+  group: zizmor-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   zizmor:
     name: zizmor
     runs-on: ubuntu-latest
+    permissions:
+      contents: read   # to check out the repo
+      actions: read    # for zizmor's online audits (e.g. archived-uses, known-vulnerable-actions)
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,3 +41,72 @@ jobs:
         with:
           advanced-security: false
           annotations: true
+
+  comment:
+    name: PR summary comment
+    needs: zizmor
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read           # for zizmor's online audits, same as the zizmor job
+      pull-requests: write    # to post/update the findings summary comment
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Annotations from the zizmor job land on individual lines and are easy
+      # to miss, so also post/update a single summary comment on the PR.
+      # Zizmor is run a second time here (not via zizmor-action, which has no
+      # JSON output option) purely to build that summary; it's informational
+      # only and doesn't affect the zizmor job's pass/fail result.
+      - name: Generate zizmor summary
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          pipx install zizmor
+          zizmor --format=json . > /tmp/zizmor.json || true
+
+          {
+            echo "<!-- zizmor-summary -->"
+            echo "### 🌈 zizmor findings"
+            echo
+            total=$(jq 'length' /tmp/zizmor.json)
+            if [ "$total" -eq 0 ]; then
+              echo "No findings. Good job!"
+            else
+              echo "Found **${total}** finding(s) across the workflows in this PR."
+              echo
+              echo "| Rule | Severity | Count |"
+              echo "|---|---|---|"
+              jq -r '
+                group_by(.ident + "|" + .determinations.severity)
+                | map({rule: .[0].ident, severity: .[0].determinations.severity, count: length})
+                | sort_by(-.count)
+                | .[]
+                | "| `\(.rule)` | \(.severity) | \(.count) |"
+              ' /tmp/zizmor.json
+            fi
+            echo
+            echo "See the [\`zizmor\` job run](${RUN_URL}) for details, or the [audit docs](https://docs.zizmor.sh/audits/)."
+          } > /tmp/zizmor_comment.md
+
+      - name: Post or update PR summary comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          existing_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq '[.[] | select(.body | startswith("<!-- zizmor-summary -->"))][0].id // empty')
+
+          if [ -n "$existing_id" ]; then
+            gh api --method PATCH "repos/${REPO}/issues/comments/${existing_id}" \
+              -f body=@/tmp/zizmor_comment.md
+          else
+            gh pr comment "${PR_NUMBER}" \
+              --repo "${REPO}" \
+              --body-file /tmp/zizmor_comment.md
+          fi
