@@ -82,9 +82,12 @@ jobs:
               echo "| Rule | Severity | Count |"
               echo "|---|---|---|"
               jq -r '
+                def severity_rank:
+                  {"High": 0, "Medium": 1, "Low": 2, "Informational": 3}[.] // 4;
                 group_by(.ident + "|" + .determinations.severity)
                 | map({rule: .[0].ident, severity: .[0].determinations.severity, count: length})
-                | sort_by(-.count)
+                | map(. + {rank: (.severity | severity_rank)})
+                | sort_by(.rank, -.count)
                 | .[]
                 | "| `\(.rule)` | \(.severity) | \(.count) |"
               ' /tmp/zizmor.json
