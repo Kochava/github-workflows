@@ -1,0 +1,146 @@
+# Reusable zizmor scan for any repo's GitHub Actions workflows.
+#
+# Usage, in a caller repo's own workflow (e.g. .github/workflows/pull_request.yml):
+#
+#   jobs:
+#     zizmor:
+#       uses: Kochava/github-workflows/.github/workflows/zizmor_scan.yml@zizmor/v1
+#
+# Defaults to audit-only: it never fails your build, it just leaves inline
+# annotations and posts/updates a PR summary comment. Set fail-on-findings:
+# true once you're ready to enforce it. Uses GitHub annotations (not SARIF),
+# since most consumer repos are private and don't have a GitHub Advanced
+# Security license.
+name: zizmor scan (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      fail-on-findings:
+        description: 'Fail the check when zizmor finds anything. Defaults to false (audit-only: annotate + comment, never block).'
+        type: boolean
+        required: false
+        default: false
+      comment:
+        description: 'Post/update a PR summary comment with a rule/severity breakdown.'
+        type: boolean
+        required: false
+        default: true
+      persona:
+        description: "zizmor persona to audit with: 'regular', 'pedantic', or 'auditor'."
+        type: string
+        required: false
+        default: 'regular'
+      min-severity:
+        description: "Filter findings below this severity: 'informational', 'low', 'medium', or 'high'. Leave empty for no filter."
+        type: string
+        required: false
+        default: ''
+
+permissions: {}   # each job below grants only what it needs
+
+concurrency:
+  group: zizmor-scan-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read   # to check out the caller's repo
+      actions: read    # for zizmor's online audits (e.g. archived-uses, known-vulnerable-actions)
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # continue-on-error is driven by the fail-on-findings input (default
+      # false: audit-only). The `github` annotation format propagates
+      # zizmor's real exit code, unlike SARIF, which always exits 0.
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
+        continue-on-error: ${{ !inputs.fail-on-findings }}
+        with:
+          advanced-security: false
+          annotations: true
+          persona: ${{ inputs.persona }}
+          min-severity: ${{ inputs.min-severity }}
+
+  comment:
+    name: PR summary comment
+    needs: zizmor
+    if: inputs.comment && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read           # for zizmor's online audits, same as the zizmor job
+      pull-requests: write    # to post/update the findings summary comment
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Annotations from the zizmor job land on individual lines and are easy
+      # to miss, so also post/update a single summary comment on the PR.
+      # Zizmor is run a second time here (not via zizmor-action, which has no
+      # JSON output option) purely to build that summary; it's informational
+      # only and doesn't affect the zizmor job's pass/fail result.
+      - name: Generate zizmor summary
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PERSONA: ${{ inputs.persona }}
+          MIN_SEVERITY: ${{ inputs.min-severity }}
+        run: |
+          pipx install zizmor
+
+          args=(--format=json --persona="${PERSONA}")
+          [ -n "${MIN_SEVERITY}" ] && args+=(--min-severity="${MIN_SEVERITY}")
+          zizmor "${args[@]}" . > /tmp/zizmor.json || true
+
+          {
+            echo "<!-- zizmor-summary -->"
+            echo "### 🌈 zizmor findings"
+            echo
+            total=$(jq 'length' /tmp/zizmor.json)
+            if [ "$total" -eq 0 ]; then
+              echo "No findings. Good job!"
+            else
+              echo "Found **${total}** finding(s) across the workflows in this PR."
+              echo
+              echo "| Rule | Severity | Count |"
+              echo "|---|---|---|"
+              jq -r '
+                def severity_rank:
+                  {"High": 0, "Medium": 1, "Low": 2, "Informational": 3}[.] // 4;
+                group_by(.ident + "|" + .determinations.severity)
+                | map({rule: .[0].ident, severity: .[0].determinations.severity, count: length})
+                | map(. + {rank: (.severity | severity_rank)})
+                | sort_by(.rank, -.count)
+                | .[]
+                | "| `\(.rule)` | \(.severity) | \(.count) |"
+              ' /tmp/zizmor.json
+            fi
+            echo
+            echo "See the [\`zizmor\` job run](${RUN_URL}) for details, or the [audit docs](https://docs.zizmor.sh/audits/)."
+          } > /tmp/zizmor_comment.md
+
+      - name: Post or update PR summary comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          existing_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq '[.[] | select(.body | startswith("<!-- zizmor-summary -->"))][0].id // empty')
+
+          if [ -n "$existing_id" ]; then
+            gh api --method PATCH "repos/${REPO}/issues/comments/${existing_id}" \
+              -F body=@/tmp/zizmor_comment.md
+          else
+            gh pr comment "${PR_NUMBER}" \
+              --repo "${REPO}" \
+              --body-file /tmp/zizmor_comment.md
+          fi
