@@ -104,7 +104,7 @@ jobs:
 
           if [ -n "$existing_id" ]; then
             gh api --method PATCH "repos/${REPO}/issues/comments/${existing_id}" \
-              -f body=@/tmp/zizmor_comment.md
+              -F body=@/tmp/zizmor_comment.md
           else
             gh pr comment "${PR_NUMBER}" \
               --repo "${REPO}" \
